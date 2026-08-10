@@ -1,5 +1,6 @@
 import os
 import json
+import asyncio
 from typing import Optional
 from pathlib import Path
 from dotenv import load_dotenv
@@ -27,17 +28,17 @@ class StructuredReceiptData(BaseModel):
     total_amount: float = Field(description="Grand total receipt amount paid")
 
 async def parse_receipt_image_async(image_bytes: bytes, mime_type: str = "image/jpeg") -> dict:
-    env_path = Path(__file__).resolve().parent / ".env"
-    load_dotenv(dotenv_path=env_path, override=False)
+    backend_env = Path(__file__).resolve().parent / ".env"
+    root_env = Path(__file__).resolve().parent.parent / ".env"
+
+    load_dotenv(dotenv_path=backend_env, override=False)
+    if not os.getenv("GEMINI_API_KEY"):
+        load_dotenv(dotenv_path=root_env, override=False)
 
     api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key or api_key == "MY_GEMINI_API_KEY":
-        # Fallback check system environment or parent .env
-        load_dotenv(dotenv_path=env_path, override=True)
-        api_key = os.getenv("GEMINI_API_KEY")
 
-    if not api_key or api_key == "MY_GEMINI_API_KEY":
-        raise ValueError("GEMINI_API_KEY is missing or invalid! Please set your actual Gemini API key in .env file.")
+    if not api_key or api_key.strip() in ["", "MY_GEMINI_API_KEY", "your_gemini_api_key_here"]:
+        raise ValueError("GEMINI_API_KEY is missing or invalid! Please set your actual Gemini API key in your .env file.")
 
     client = genai.Client(api_key=api_key)
 
@@ -61,19 +62,48 @@ async def parse_receipt_image_async(image_bytes: bytes, mime_type: str = "image/
         "5. Return valid structured JSON matching the provided schema."
     )
 
-    # Use client.aio for non-blocking asynchronous calls
-    response = await client.aio.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=[
-            types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-            prompt,
-        ],
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=StructuredReceiptData,
-            temperature=0.1,
-        ),
-    )
+    # Valid models supported in Google GenAI SDK v1.x
+    candidate_models = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.0-flash-lite"]
+    last_exception = None
+    response = None
+
+    for target_model in candidate_models:
+        for attempt in range(2):
+            try:
+                response = await client.aio.models.generate_content(
+                    model=target_model,
+                    contents=[
+                        types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+                        prompt,
+                    ],
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=StructuredReceiptData,
+                        temperature=0.1,
+                    ),
+                )
+                if response and response.text:
+                    break
+            except Exception as err:
+                last_exception = err
+                err_str = str(err)
+                if "429" in err_str:
+                    # Sleep 2 seconds to let free tier quota window reset
+                    await asyncio.sleep(2.0)
+                    continue
+                elif "404" in err_str or "NOT_FOUND" in err_str:
+                    # Model ID not available for this API key/region, break to try next model
+                    break
+                else:
+                    break
+
+        if response and response.text:
+            break
+
+    if not response or not response.text:
+        if last_exception and "429" in str(last_exception):
+            raise ValueError("Google Gemini API Free Tier rate limit reached (429). Please wait 10 seconds and try scanning again.")
+        raise last_exception or ValueError("Failed to parse receipt image with Gemini AI.")
 
     raw_data = json.loads(response.text)
 
