@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SnapSpend — AI Personal Finance</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Main Style Bundle processed by Vite -->
+    <link rel="stylesheet" href="/css/main.css" />
+    <!-- Lucide Icons Library CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+  </head>
+  <body class="bg-slate-50 text-slate-900 pb-safe-bottom font-sans">
+    
+    <!-- Top Configuration Header / Credentials setup overlay (if Supabase not configured) -->
+    <div id="setup-overlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+      <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl p-6 border border-slate-100">
+        <h2 class="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2 mb-2">
+          <i data-lucide="database" class="text-blue-600"></i> Link Supabase
+        </h2>
+        <p class="text-slate-500 text-sm mb-4">
+          Provide your Supabase URL and Anon Key to activate the applet database. You can copy these from your Supabase Project Settings.
+        </p>
+        <form id="setup-form" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Supabase URL</label>
+            <input type="text" id="setup-url" required placeholder="https://xxxxxx.supabase.co" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 outline-none rounded-lg focus:border-blue-500 font-mono text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Anon API Key</label>
+            <textarea id="setup-key" required rows="3" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 outline-none rounded-lg focus:border-blue-500 font-mono text-xs resize-none"></textarea>
+          </div>
+          <button type="submit" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium shadow-lg shadow-blue-600/10 transition-all text-sm flex items-center justify-center gap-2">
+            <i data-lucide="plug" class="w-4 h-4"></i> Establish Connection
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Application Shell Header -->
+    <header class="sticky top-0 bg-white/90 backdrop-blur-md border-b border-slate-200 py-3.5 px-4 sm:px-6 z-30 shadow-sm">
+      <div class="max-w-7xl mx-auto flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="bg-slate-900 p-2 rounded-lg text-white flex items-center justify-center">
+            <i data-lucide="wallet" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h1 class="text-sm font-black text-slate-950 uppercase tracking-wider leading-none">SNAPSPEND</h1>
+            <span class="text-[9px] uppercase font-bold text-slate-400 tracking-widest logo-subtitle">AI PERSONAL FINANCE</span>
+          </div>
+        </div>
+
+        <!-- Month Navigation (Hidden on Auth Screen) -->
+        <div id="month-navigation-ribbon" class="flex items-center bg-slate-100 rounded-xl p-1 gap-0.5 sm:gap-1 hidden">
+          <button id="btn-prev-month" class="p-1 sm:p-1.5 hover:bg-white text-slate-600 hover:text-slate-900 rounded-lg transition-all" title="Previous Month">
+            <i data-lucide="chevron-left" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
+          </button>
+          <span id="display-current-month" class="px-1.5 sm:px-3 text-[10px] sm:text-xs font-semibold text-slate-800 min-w-[70px] sm:min-w-[100px] text-center font-mono">
+            Loading...
+          </span>
+          <button id="btn-next-month" class="p-1 sm:p-1.5 hover:bg-white text-slate-600 hover:text-slate-900 rounded-lg transition-all" title="Next Month">
+            <i data-lucide="chevron-right" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
+          </button>
+        </div>
+
+        <!-- Top Right Account Tray -->
+        <div id="user-account-tray" class="flex items-center gap-2">
+          <span id="user-display-email" class="text-xs text-slate-500 font-mono hidden sm:inline max-w-[180px] truncate"></span>
+          <button id="btn-logout" class="hidden p-2 text-slate-400 hover:text-red-500 rounded-lg transition-all hover:bg-slate-50" title="Sign Out">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+          </button>
+          <button id="btn-reconnect-db" class="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg transition-all hover:bg-slate-50" title="Database Configuration">
+            <i data-lucide="database" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Global Floating Month Banner (Salary Prompt / Warning) -->
+    <div id="global-banners" class="max-w-7xl mx-auto px-4 sm:px-6 pt-4 mb-[-8px] hidden">
+      <!-- Container for dynamic alerts -->
+    </div>
+
+    <!-- Main Workspace Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6" id="app-content-wrapper">
+      <!-- Routing views are populated dynamically in this container -->
+      <div id="app-content" class="min-h-[50vh]">
+        <!-- Loading Spinner -->
+        <div class="flex flex-col items-center justify-center py-20">
+          <div class="w-10 h-10 border-4 border-blue-500/20 border-t-blue-600 rounded-full animate-spin"></div>
+          <p class="text-xs text-slate-400 mt-4 font-mono">Configuring connection...</p>
+        </div>
+      </div>
+    </main>
+
+    <!-- Bottom Navigation Bar (Fixed screen bottom, always visible) -->
+    <nav id="bottom-navigation-bar" class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-lg px-2 py-1.5 z-40 hidden">
+      <div class="max-w-md mx-auto flex items-center justify-around">
+        <button data-target="dashboard" class="flex flex-col items-center justify-center p-2 text-slate-400 hover:text-blue-600 group transition-all cursor-pointer">
+          <i data-lucide="layout-dashboard" class="w-5 h-5 mb-0.5 group-hover:scale-110 transition-all"></i>
+          <span class="text-[9px] font-medium tracking-tight bottom-nav-label">Dashboard</span>
+        </button>
+        <button data-target="income" class="flex flex-col items-center justify-center p-2 text-slate-400 hover:text-blue-600 group transition-all cursor-pointer">
+          <i data-lucide="trending-up" class="w-5 h-5 mb-0.5 group-hover:scale-110 transition-all"></i>
+          <span class="text-[9px] font-medium tracking-tight bottom-nav-label">Income</span>
+        </button>
+        <button data-target="expenses" class="flex flex-col items-center justify-center p-2 text-slate-400 hover:text-blue-600 group transition-all cursor-pointer">
+          <i data-lucide="trending-down" class="w-5 h-5 mb-0.5 group-hover:scale-110 transition-all"></i>
+          <span class="text-[9px] font-medium tracking-tight bottom-nav-label">Expenses</span>
+        </button>
+        <button data-target="reports" class="flex flex-col items-center justify-center p-2 text-slate-400 hover:text-blue-600 group transition-all cursor-pointer">
+          <i data-lucide="file-text" class="w-5 h-5 mb-0.5 group-hover:scale-110 transition-all"></i>
+          <span class="text-[9px] font-medium tracking-tight bottom-nav-label">Reports</span>
+        </button>
+        <button data-target="future-wealth" class="flex flex-col items-center justify-center p-2 text-slate-400 hover:text-blue-600 group transition-all cursor-pointer">
+          <i data-lucide="sparkles" class="w-5 h-5 mb-0.5 group-hover:scale-110 transition-all"></i>
+          <span class="text-[9px] font-medium tracking-tight bottom-nav-label">Calculators</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Global Modal Overlay (Shared across all actions) -->
+    <div id="global-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
+      <div id="global-modal-container" class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 border border-slate-100 transition-all transform scale-95 opacity-0">
+        <!-- Content injected dynamically -->
+      </div>
+    </div>
+
+    <!-- Active Loading Overlay for DB Actions -> prevent double post -->
+    <div id="action-spinner" class="fixed inset-0 bg-slate-900/10 backdrop-blur-[1px] z-55 flex items-center justify-center hidden">
+      <div class="bg-white/95 border border-slate-100 px-5 py-3 rounded-full shadow-lg flex items-center gap-3">
+        <div class="w-4 h-4 border-2 border-emerald-500/20 border-t-emerald-600 rounded-full animate-spin font-semibold"></div>
+        <span class="text-xs text-slate-750 font-medium">Syncing changes...</span>
+      </div>
+    </div>
+
+    <!-- Core App Module Loader -->
+    <script type="module" src="/js/app.js"></script>
+  </body>
+</html>

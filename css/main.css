@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Bespoke typography and fluid background rules */
+body {
+  font-family: var(--font-sans);
+  background-color: #f8fafc; /* Slate 50 tint */
+  color: #0f172a; /* Slate 900 tint */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Smooth custom scale animations */
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Hide scrollbar on modern browsers but preserve interactive panning */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Elegant shadow card accents */
+.bento-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0; /* slate-200 */
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.bento-card:hover {
+  border-color: #94a3b8; /* slate-400 */
+  box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
+}
+
+.pb-safe-bottom {
+  padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+}
+
+.bottom-nav-active {
+  color: #2563eb; /* blue-600 */
+  border-top: 3px solid #2563eb;
+}
+
+/* Custom responsiveness rules */
+@media (max-width: 640px) {
+  .logo-subtitle {
+    display: none !important;
+  }
+  .bottom-nav-label {
+    display: none !important;
+  }
+  #bottom-navigation-bar button {
+    padding: 0.5rem 0.1rem !important;
+  }
+  #bottom-navigation-bar i {
+    width: 1.35rem !important;
+    height: 1.35rem !important;
+  }
+}
