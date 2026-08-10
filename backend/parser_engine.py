@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import asyncio
 from typing import Optional
@@ -7,6 +8,45 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
+
+def fallback_parse_ocr(image_bytes: bytes) -> Optional[dict]:
+    try:
+        from ocr_engine import extract_ocr_data
+        ocr_lines = extract_ocr_data(image_bytes)
+        if not ocr_lines:
+            return None
+        texts = [line.get("text", "") for line in ocr_lines if line.get("text")]
+        if not texts:
+            return None
+
+        merchant = texts[0] if len(texts) > 0 else "Scanned Receipt"
+        numbers = []
+        for t in texts:
+            found = re.findall(r'\d+[.,]\d{2}', t)
+            for f in found:
+                try:
+                    val = float(f.replace(',', '.'))
+                    if val > 0:
+                        numbers.append(val)
+                except ValueError:
+                    pass
+
+        total_amount = max(numbers) if numbers else 0.0
+
+        return {
+            "merchant": merchant,
+            "receipt_date": "",
+            "currency": "EUR",
+            "items": [],
+            "subtotal": total_amount,
+            "tax": 0.0,
+            "total_amount": total_amount,
+            "vendor": merchant,
+            "date": "",
+            "purchased_items": [],
+        }
+    except Exception as e:
+        return None
 
 class ReceiptItem(BaseModel):
     item_name: str = Field(description="Name or description of the product purchased")
@@ -101,6 +141,9 @@ async def parse_receipt_image_async(image_bytes: bytes, mime_type: str = "image/
             break
 
     if not response or not response.text:
+        fallback = fallback_parse_ocr(image_bytes)
+        if fallback:
+            return fallback
         if last_exception and "429" in str(last_exception):
             raise ValueError("Google Gemini API Free Tier rate limit reached (429). Please wait 10 seconds and try scanning again.")
         raise last_exception or ValueError("Failed to parse receipt image with Gemini AI.")
