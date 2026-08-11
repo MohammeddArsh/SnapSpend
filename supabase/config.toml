@@ -1,0 +1,3 @@
+project_id = "snapspend"
+[functions.assistant]
+verify_jwt = true

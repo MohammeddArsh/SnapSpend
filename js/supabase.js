@@ -7,6 +7,11 @@ let supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || sessionStorage.g
 
 export let supabase = null;
 
+// Getter so callers always read the CURRENT URL (re-configured via the setup overlay)
+export function getSupabaseUrl() {
+    return supabaseUrl;
+}
+
 export function isSupabaseConfigured() {
     return !!(supabaseUrl && supabaseAnonKey);
 }

@@ -13,19 +13,13 @@
   },
   "dependencies": {
     "@google/genai": "^2.16.0",
+    "@supabase/server": "^1.4.1",
     "@supabase/supabase-js": "^2.106.2",
     "@tailwindcss/vite": "^4.1.14",
-    "jspdf": "^4.2.1",
-    "jspdf-autotable": "^5.0.8",
-    "next": "^16.3.0",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
     "vite": "^6.2.3"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
     "tailwindcss": "^4.1.14",

@@ -1,24 +1,129 @@
 @import "tailwindcss";
 
+/* Class-based dark mode (toggled via .dark on <html>) */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-brand-50: #f2f0ff;
+  --color-brand-100: #e6e2ff;
+  --color-brand-200: #d0c8ff;
+  --color-brand-300: #b0a3ff;
+  --color-brand-400: #8b74ff;
+  --color-brand-500: #6d47ff;
+  --color-brand-600: #5a21f5;
+  --color-brand-700: #4c15d8;
+  --color-brand-800: #4013b0;
+  --color-brand-900: #35138e;
+  --color-brand-950: #1d0b52;
+
+  --animate-fade-in: fade-in 0.35s ease-out both;
+  --animate-slide-up: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-scale-in: scale-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+  }
 }
 
-/* Bespoke typography and fluid background rules */
+/* Base typography + theme-aware body */
 body {
   font-family: var(--font-sans);
-  background-color: #f8fafc; /* Slate 50 tint */
-  color: #0f172a; /* Slate 900 tint */
+  background-color: #f6f7fb;
+  color: #0f172a;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Smooth custom scale animations */
-.transition-all {
-  transition-property: all;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 150ms;
+.dark body {
+  background-color: #080a12;
+  color: #e2e8f0;
+}
+
+::selection {
+  background-color: rgba(139, 92, 246, 0.25);
+}
+
+/* Theme-aware surface card */
+.bento-card {
+  background-color: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 1.25rem;
+  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04), 0 8px 24px -12px rgba(15, 23, 42, 0.08);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, background-color 0.3s ease;
+}
+
+.dark .bento-card {
+  background-color: rgba(15, 18, 32, 0.85);
+  border-color: rgba(51, 65, 85, 0.45);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3), 0 12px 32px -16px rgba(0, 0, 0, 0.5);
+}
+
+.bento-card-hover:hover {
+  border-color: rgba(139, 92, 246, 0.35);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px -12px rgba(99, 102, 241, 0.25);
+}
+
+.dark .bento-card-hover:hover {
+  border-color: rgba(139, 92, 246, 0.45);
+  box-shadow: 0 16px 40px -16px rgba(99, 102, 241, 0.35);
+}
+
+/* Brand gradient helpers */
+.bg-brand-gradient {
+  background-image: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #3b82f6 100%);
+}
+
+.bg-brand-gradient-soft {
+  background-image: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(59, 130, 246, 0.08));
+}
+
+.dark .bg-brand-gradient-soft {
+  background-image: none;
+  background-color: rgba(29, 11, 82, 0.3);
+}
+
+.text-gradient {
+  background-image: linear-gradient(135deg, #8b5cf6, #6366f1, #3b82f6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.dark .text-gradient {
+  background-image: linear-gradient(135deg, #a78bfa, #818cf8, #60a5fa);
+}
+
+/* Glassmorphism surface */
+.glass-surface {
+  background-color: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(226, 232, 240, 0.7);
+}
+
+.dark .glass-surface {
+  background-color: rgba(10, 13, 24, 0.7);
+  border-color: rgba(51, 65, 85, 0.4);
+}
+
+/* Focus ring for accessibility */
+.focus-ring:focus-visible {
+  outline: 2px solid #8b5cf6;
+  outline-offset: 2px;
 }
 
 /* Hide scrollbar on modern browsers but preserve interactive panning */
@@ -26,30 +131,37 @@ body {
   display: none;
 }
 .no-scrollbar {
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-/* Elegant shadow card accents */
-.bento-card {
-  background-color: #ffffff;
-  border: 1px solid #e2e8f0; /* slate-200 */
-  border-radius: 1rem;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+/* Thin scrollbar for pill bars / result panes */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
 }
-.bento-card:hover {
-  border-color: #94a3b8; /* slate-400 */
-  box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
+.scrollbar-thin::-webkit-scrollbar {
+  height: 5px;
+  width: 5px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 116, 139, 0.35);
+  border-radius: 9999px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .pb-safe-bottom {
-  padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
 }
 
+/* Gradient pill used by the bottom navigation active state */
 .bottom-nav-active {
-  color: #2563eb; /* blue-600 */
-  border-top: 3px solid #2563eb;
+  color: #ffffff;
+  background-image: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #3b82f6 100%);
+  box-shadow: 0 8px 20px -6px rgba(99, 102, 241, 0.5);
+  border-radius: 1rem;
 }
 
 /* Custom responsiveness rules */
@@ -61,10 +173,63 @@ body {
     display: none !important;
   }
   #bottom-navigation-bar button {
-    padding: 0.5rem 0.1rem !important;
+    padding: 0.5rem 0.9rem !important;
   }
-  #bottom-navigation-bar i {
-    width: 1.35rem !important;
-    height: 1.35rem !important;
+}
+
+/* SVG pie chart slices */
+.pie-slice {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease, filter 0.3s ease;
+}
+.pie-slice:hover {
+  transform: scale(1.07);
+  filter: brightness(1.05) drop-shadow(0 0 6px rgba(139, 92, 246, 0.4));
+}
+
+.pie-dim {
+  opacity: 0.3;
+}
+
+.legend-row {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+.legend-row:hover {
+  transform: translateY(-1px);
+}
+
+/* Sweep-in animation for donut slices */
+@keyframes pie-sweep {
+  from { stroke-dasharray: 0 100; }
+  to { stroke-dasharray: var(--slice-dash); }
+}
+.animate-pie-sweep {
+  animation: pie-sweep 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pie-sweep {
+    animation: none;
   }
+}
+
+/* Number alignment for financial figures */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Soft glow orb used on hero cards */
+.glow-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(48px);
+  pointer-events: none;
+}
+
+/* Conic gradient loading ring */
+.bg-conic-brand {
+  background: conic-gradient(from 0deg, rgba(139, 92, 246, 0.15), #8b5cf6 55%, #3b82f6);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
 }

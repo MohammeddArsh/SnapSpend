@@ -1,18 +1,21 @@
 // Utilities for Personal Finance Tracker
 
 /**
- * Formats a numeric value as EUR (€).
- * Example: €1,234.50 or €1,000
+ * Formats a numeric value in the given currency.
+ * Example: €1,234.50
  */
 export function formatCurrency(amount, currency = 'EUR') {
     const num = parseFloat(amount || 0);
-    if (isNaN(num)) return '€0';
+    if (isNaN(num)) {
+        const sym = { EUR: '€', USD: '$', GBP: '£' }[currency] || (currency ? `${currency} ` : '€');
+        return `${sym}0`;
+    }
 
     return new Intl.NumberFormat('en-IE', {
         style: 'currency',
-        currency: 'EUR',
+        currency: currency,
         maximumFractionDigits: 2,
-        minimumFractionDigits: 0
+        minimumFractionDigits: 2
     }).format(num);
 }
 

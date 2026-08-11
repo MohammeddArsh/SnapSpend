@@ -44,6 +44,13 @@ export class NaiveBayesClassifier {
         let bestCategory = null;
         let maxScore = -Infinity;
 
+        // Laplace smoothing: use the union vocabulary size across categories
+        const vocab = new Set();
+        Object.values(this.tokenCount).forEach(catTokens => {
+            Object.keys(catTokens).forEach(t => vocab.add(t));
+        });
+        const vocabSize = vocab.size || 1;
+
         this.categories.forEach(categoryId => {
             // Prior probability: P(Category)
             let score = Math.log(this.categoryCount[categoryId] / this.totalDocs);
@@ -54,8 +61,8 @@ export class NaiveBayesClassifier {
 
             tokens.forEach(token => {
                 const count = catTokenCounts[token] || 0;
-                // Laplace smoothing with vocabulary approximation size
-                const probability = (count + 1) / (catTotalTokens + 1000);
+                // Laplace smoothing with real vocabulary size
+                const probability = (count + 1) / (catTotalTokens + vocabSize);
                 score += Math.log(probability);
             });
 
@@ -108,15 +115,58 @@ export function normalizeMerchantName(rawName) {
 }
 
 /**
+ * Whole-token keyword matching.
+ * Ensures keywords match on word boundaries only, so e.g. "macy" does not
+ * match "pharmacy" and "cab" does not match "cabbage". Multi-word keywords
+ * must appear as a contiguous run of tokens.
+ */
+function tokenizeText(text) {
+    return String(text || '').toLowerCase().split(/[^a-z0-9]+/i).filter(Boolean);
+}
+
+function textContainsPhrase(text, phrase) {
+    const textTokens = tokenizeText(text);
+    const phraseTokens = tokenizeText(phrase);
+    if (textTokens.length === 0 || phraseTokens.length === 0) return false;
+
+    if (phraseTokens.length === 1) return textTokens.includes(phraseTokens[0]);
+
+    outer:
+    for (let i = 0; i <= textTokens.length - phraseTokens.length; i++) {
+        for (let j = 0; j < phraseTokens.length; j++) {
+            if (textTokens[i + j] !== phraseTokens[j]) continue outer;
+        }
+        return true;
+    }
+    return false;
+}
+
+/**
  * Known Merchant Rules Mapping to Canonical Category Concepts
  */
 const KNOWN_MERCHANT_MAP = [
+    {
+        concept: 'Pharmacy',
+        keywords: [
+            'boots', 'apotheke', 'apothecary', 'rossmann', 'dm drogerie', 'docmorris',
+            'shop apotheke', 'walgreens', 'cvs', 'cvs pharmacy', 'rite aid', 'pharmacie',
+            'farmacia', 'pharma', 'med pharmacy', 'kruidvat', 'etos', 'sanifair'
+        ]
+    },
+    {
+        concept: 'Households',
+        keywords: [
+            'ikea', 'hornbach', 'bauhaus', 'obi', 'hagebau', 'toom', 'praktiker',
+            'home depot', 'lowe', 'homebase', 'b&q', 'woolworth', 'diy', 'leroy merlin',
+            'brico', 'castorama', 'conforama', 'jysk', 'dunelm', 'wayfair'
+        ]
+    },
     {
         concept: 'Shopping',
         keywords: [
             'zara', 'h&m', 'hm', 'uniqlo', 'nike', 'adidas', 'puma', 'mango', 'gap',
             'levis', 'levi', 'forever 21', 'urban outfitters', 'gucci', 'prada',
-            'decathlon', 'nordstrom', 'macy', 'macys', 'target', 'walmart', 'sephora', 'victoria secret',
+            'decathlon', 'nordstrom', 'macys', 'target', 'walmart', 'sephora', 'victoria secret',
             'asos', 'zalando', 'shein', 'bershka', 'pull&bear', 'stradivarius', 'primark',
             'apple', 'best buy', 'apple store', 'mediamarkt', 'currys', 'b&h', 'micro center'
         ]
@@ -135,7 +185,7 @@ const KNOWN_MERCHANT_MAP = [
         ]
     },
     {
-        concept: 'Trips / Outings',
+        concept: 'Travel',
         keywords: [
             'mcdonalds', 'mcdonald', 'burger king', 'kfc', 'subway', 'dominos', 'domino',
             'pizza hut', 'starbucks', 'dunkin', 'chipotle', 'taco bell', 'wendys', 'wendy',
@@ -160,6 +210,26 @@ const KNOWN_MERCHANT_MAP = [
  */
 const ITEM_KEYWORD_MAP = [
     {
+        concept: 'Pharmacy',
+        keywords: [
+            'medicine', 'medication', 'paracetamol', 'ibuprofen', 'aspirin', 'painkiller',
+            'prescription', 'pharmacy', 'vitamins', 'supplement', 'supplements', 'band aid',
+            'first aid', 'cough syrup', 'ointment', 'antiseptic', 'inhaler', 'insulin',
+            'syringe', 'thermometer', 'blood pressure', 'hand sanitizer', 'face mask',
+            'shampoo', 'toothpaste', 'deodorant', 'toiletries', 'sunscreen'
+        ]
+    },
+    {
+        concept: 'Households',
+        keywords: [
+            'furniture', 'sofa', 'table', 'chair', 'wardrobe', 'bed frame', 'mattress',
+            'lamp', 'curtain', 'towel', 'linen', 'cushion', 'rug', 'pillow', 'blanket',
+            'cookware', 'pots and pans', 'cutlery', 'kitchenware', 'cleaning supplies',
+            'detergent', 'dish soap', 'bleach', 'broom', 'mop', 'vacuum', 'light bulb',
+            'batteries', 'tools', 'hammer', 'screwdriver', 'paint', 'plant pot', 'gardening'
+        ]
+    },
+    {
         concept: 'Shopping',
         keywords: [
             'shirt', 't-shirt', 'tshirt', 'trousers', 'pants', 'jeans', 'jacket', 'coat',
@@ -178,7 +248,7 @@ const ITEM_KEYWORD_MAP = [
         ]
     },
     {
-        concept: 'Trips / Outings',
+        concept: 'Travel',
         keywords: [
             'burger', 'pizza', 'coffee', 'latte', 'cappuccino', 'espresso', 'sandwich',
             'pasta', 'sushi', 'noodle', 'beer', 'wine', 'cocktail', 'meal', 'lunch',
@@ -213,9 +283,11 @@ export function resolveConceptToUserCategory(concept, userCategories) {
 
     // 2. Alias mapping fallback matrix based on available user categories
     const conceptAliases = {
-        'shopping': ['shopping', 'clothing', 'apparel', 'retail', 'stores', 'electronics', 'goods'],
-        'travel': ['travel', 'trips', 'vacation', 'transport', 'transportation', 'flights', 'hotels'],
-        'trips / outings': ['trips / outings', 'trips/outings', 'outings', 'dining', 'restaurants', 'entertainment', 'food & dining', 'food'],
+        'shopping': ['shopping', 'clothing', 'apparel', 'retail', 'stores', 'electronics', 'goods', 'miscellaneous', 'misc', 'general', 'other'],
+        'pharmacy': ['pharmacy', 'drugstore', 'drug store', 'chemist', 'health', 'medicine', 'pharma'],
+        'households': ['households', 'household', 'home', 'furniture', 'cleaning', 'home goods', 'diy', 'utilities'],
+        'travel': ['travel', 'trips', 'vacation', 'transport', 'transportation', 'flights', 'hotels', 'trips / outings', 'outings', 'dining', 'restaurants', 'entertainment', 'food & dining', 'food'],
+        'trips / outings': ['trips / outings', 'trips/outings', 'outings', 'travel', 'dining', 'restaurants', 'entertainment', 'food & dining', 'food'],
         'groceries': ['groceries', 'grocery', 'food', 'supermarket', 'food & groceries', 'shopping', 'trips / outings']
     };
 
@@ -281,11 +353,11 @@ export function classifyExpense(data, userCategories, naiveBayesClassifier = nul
     const fullText = [merchantRaw, noteRaw, ...itemNames, ...itemCategories].join(' ').toLowerCase();
 
     // Special handling for general online retailers (Amazon, eBay, AliExpress)
-    const isGeneralRetailer = merchantNorm.includes('amazon') || merchantNorm.includes('ebay') || merchantNorm.includes('aliexpress');
+    const isGeneralRetailer = textContainsPhrase(merchantNorm, 'amazon') || textContainsPhrase(merchantNorm, 'ebay') || textContainsPhrase(merchantNorm, 'aliexpress');
     if (isGeneralRetailer && itemNames.length > 0) {
         for (const rule of ITEM_KEYWORD_MAP) {
             for (const kw of rule.keywords) {
-                if (itemNames.some(name => name.includes(kw))) {
+                if (itemNames.some(name => textContainsPhrase(name, kw))) {
                     const matchedCat = resolveConceptToUserCategory(rule.concept, userCategories);
                     if (matchedCat) {
                         return {
@@ -304,8 +376,7 @@ export function classifyExpense(data, userCategories, naiveBayesClassifier = nul
     if (merchantNorm) {
         for (const rule of KNOWN_MERCHANT_MAP) {
             for (const kw of rule.keywords) {
-                const kwNorm = normalizeMerchantName(kw);
-                if (merchantNorm === kwNorm || merchantNorm.startsWith(kwNorm + ' ') || merchantNorm.includes(kwNorm)) {
+                if (textContainsPhrase(merchantNorm, kw)) {
                     const matchedCat = resolveConceptToUserCategory(rule.concept, userCategories);
                     if (matchedCat) {
                         return {
@@ -324,7 +395,7 @@ export function classifyExpense(data, userCategories, naiveBayesClassifier = nul
     if (itemNames.length > 0 || noteRaw) {
         for (const rule of ITEM_KEYWORD_MAP) {
             for (const kw of rule.keywords) {
-                if (fullText.includes(kw)) {
+                if (textContainsPhrase(fullText, kw)) {
                     const matchedCat = resolveConceptToUserCategory(rule.concept, userCategories);
                     if (matchedCat) {
                         return {

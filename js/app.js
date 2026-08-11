@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured, saveSupabaseConfig, isConfiguredViaEnv } from './supabase.js';
-import { getMonthName, getPrevMonth, getNextMonth, escapeHTML } from './utils.js';
+import { getMonthName, getPrevMonth, getNextMonth, escapeHTML, formatCurrency } from './utils.js';
 
 // App state
 export let currentUser = null;
@@ -20,6 +20,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 3. Connect UI Controls
     setupUIControls();
+
+    // 3.5. Initialize Theme Toggle
+    setupThemeToggle();
 
     // 4. Listen to Auth Session
     if (isSupabaseConfigured()) {
@@ -49,11 +52,14 @@ async function handleAuthChange(user) {
         showSetupOverlay(false);
         document.getElementById('month-navigation-ribbon').classList.remove('hidden');
         document.getElementById('btn-logout').classList.remove('hidden');
+        const desktopNav = document.getElementById('desktop-navigation-tabs');
+        if (desktopNav) desktopNav.classList.remove('hidden');
         
         const userEmailSpan = document.getElementById('user-display-email');
         if (userEmailSpan) {
             // Instant fallback placeholder
-            let displayName = user.user_metadata?.username || user.email.split('@')[0];
+            const emailPart = user.email ? String(user.email).split('@')[0] : '';
+            let displayName = user.user_metadata?.username || emailPart || 'User';
             userEmailSpan.textContent = displayName;
             userEmailSpan.classList.remove('hidden');
 
@@ -83,6 +89,8 @@ async function handleAuthChange(user) {
     } else {
         document.getElementById('month-navigation-ribbon').classList.add('hidden');
         document.getElementById('btn-logout').classList.add('hidden');
+        const desktopNav = document.getElementById('desktop-navigation-tabs');
+        if (desktopNav) desktopNav.classList.add('hidden');
         
         const userEmailSpan = document.getElementById('user-display-email');
         if (userEmailSpan) {
@@ -121,30 +129,12 @@ async function ensureSeedData(userId) {
                 { user_id: userId, name: 'Other' }
             ]);
 
-            await supabase.from('bank_accounts').insert([
-                { user_id: userId, bank_name: 'HDFC' },
-                { user_id: userId, bank_name: 'IDFC' },
-                { user_id: userId, bank_name: 'SBI' }
-            ]);
-
             await supabase.from('expense_categories').insert([
                 { user_id: userId, name: 'Groceries' },
-                { user_id: userId, name: 'Household' },
                 { user_id: userId, name: 'Pharmacy' },
-                { user_id: userId, name: 'Outings' },
-                { user_id: userId, name: 'Tech & Goods' },
+                { user_id: userId, name: 'Travel' },
+                { user_id: userId, name: 'Households' },
                 { user_id: userId, name: 'Miscellaneous' }
-            ]);
-
-            await supabase.from('investment_categories').insert([
-                { user_id: userId, name: 'Mutual Funds', is_recurring: true },
-                { user_id: userId, name: 'US Funds', is_recurring: true },
-                { user_id: userId, name: 'Liquid Funds', is_recurring: true },
-                { user_id: userId, name: 'PF', is_recurring: true },
-                { user_id: userId, name: 'Gold (SGB)', is_recurring: false },
-                { user_id: userId, name: 'Fixed Deposits', is_recurring: false },
-                { user_id: userId, name: 'Stocks', is_recurring: false },
-                { user_id: userId, name: 'Other Assets', is_recurring: false }
             ]);
         }
     } catch (e) {
@@ -155,11 +145,16 @@ async function ensureSeedData(userId) {
 /**
  * Month Ribbon controls
  */
-function updateMonthRibbon() {
+export function updateMonthRibbon() {
     const el = document.getElementById('display-current-month');
     if (el) {
         el.textContent = getMonthName(selectedMonth);
     }
+}
+
+export function setSelectedMonth(value) {
+    selectedMonth = value;
+    updateMonthRibbon();
 }
 
 /**
@@ -173,7 +168,7 @@ export async function navigateTo(viewName) {
     // Toggle Month Ribbon visibility based on tab scoping
     const monthRibbon = document.getElementById('month-navigation-ribbon');
     if (monthRibbon) {
-        if (viewName === 'investments' || viewName === 'future-wealth') {
+        if (viewName === 'assistant') {
             monthRibbon.classList.add('hidden');
         } else {
             monthRibbon.classList.remove('hidden');
@@ -183,19 +178,28 @@ export async function navigateTo(viewName) {
     // Highlight Active Bottom Nav Button
     document.querySelectorAll('#bottom-navigation-bar button').forEach(btn => {
         if (btn.getAttribute('data-target') === viewName) {
-            btn.classList.add('text-blue-600', 'border-t-2', 'border-blue-600');
-            btn.classList.remove('text-slate-400');
+            btn.classList.add('bottom-nav-active');
         } else {
-            btn.classList.remove('text-blue-600', 'border-t-2', 'border-blue-600');
-            btn.classList.add('text-slate-400');
+            btn.classList.remove('bottom-nav-active');
+        }
+    });
+
+    // Highlight Active Desktop Nav Tab
+    document.querySelectorAll('#desktop-navigation-tabs button').forEach(btn => {
+        if (btn.getAttribute('data-target') === viewName) {
+            btn.classList.add('bg-brand-gradient', 'text-white', 'shadow-md', 'shadow-indigo-500/25');
+            btn.classList.remove('text-slate-500', 'dark:text-slate-400', 'hover:text-slate-900', 'dark:hover:text-white');
+        } else {
+            btn.classList.remove('bg-brand-gradient', 'text-white', 'shadow-md', 'shadow-indigo-500/25');
+            btn.classList.add('text-slate-500', 'dark:text-slate-400', 'hover:text-slate-900', 'dark:hover:text-white');
         }
     });
 
     const appContent = document.getElementById('app-content');
     appContent.innerHTML = `
         <div class="flex flex-col items-center justify-center py-20">
-            <div class="w-8 h-8 border-4 border-blue-500/10 border-t-blue-600 rounded-full animate-spin"></div>
-            <p class="text-[11px] text-slate-400 mt-3 font-mono">Syncing records...</p>
+            <div class="w-8 h-8 rounded-full bg-conic-brand animate-spin"></div>
+            <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-3 font-mono">Syncing records...</p>
         </div>
     `;
 
@@ -209,20 +213,11 @@ export async function navigateTo(viewName) {
                 case 'income':
                     module = await import('./income.js');
                     break;
-                case 'banks':
-                    module = await import('./banks.js');
-                    break;
-                case 'investments':
-                    module = await import('./investments.js');
-                    break;
                 case 'expenses':
                     module = await import('./expenses.js');
                     break;
-                case 'reports':
-                    module = await import('./reports.js');
-                    break;
-                case 'future-wealth':
-                    module = await import('./future-wealth.js');
+                case 'assistant':
+                    module = await import('./assistant.js');
                     break;
                 default:
                     throw new Error(`Unknown view: ${viewName}`);
@@ -239,11 +234,13 @@ export async function navigateTo(viewName) {
     } catch (e) {
         console.error("Navigation routing failure:", e);
         appContent.innerHTML = `
-            <div class="bg-red-50 border border-red-100 rounded-2xl p-6 text-center max-w-md mx-auto my-10">
-                <i data-lucide="alert-octagon" class="w-10 h-10 text-red-500 mx-auto mb-3"></i>
-                <h3 class="font-bold text-red-800 text-base">Module Failed to Load</h3>
-                <p class="text-xs text-red-650 mt-1">${e.message}</p>
-                <button onclick="window.location.reload()" class="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold">Retry Refresh</button>
+            <div class="bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/60 rounded-3xl p-8 text-center max-w-md mx-auto my-10 animate-fade-in">
+                <div class="bg-rose-100 dark:bg-rose-900/50 w-14 h-14 rounded-2xl text-rose-500 flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="alert-octagon" class="w-7 h-7"></i>
+                </div>
+                <h3 class="font-bold text-rose-800 dark:text-rose-200 text-base">Module Failed to Load</h3>
+                <p class="text-xs text-rose-700/70 dark:text-rose-300/70 mt-1">${escapeHTML(e.message)}</p>
+                <button onclick="window.location.reload()" class="mt-5 px-5 py-2.5 bg-brand-gradient text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/25 cursor-pointer">Retry Refresh</button>
             </div>
         `;
     }
@@ -331,6 +328,38 @@ function setupUIControls() {
             if (target) navigateTo(target);
         });
     });
+
+    // Desktop Navigation Tab Switchers
+    document.querySelectorAll('#desktop-navigation-tabs button').forEach(button => {
+        button.addEventListener('click', () => {
+            const target = button.getAttribute('data-target');
+            if (target) navigateTo(target);
+        });
+    });
+}
+
+/**
+ * Dark / Light theme toggle with localStorage persistence
+ */
+function setupThemeToggle() {
+    const btn = document.getElementById('btn-theme-toggle');
+    if (!btn) return;
+
+    const applyTheme = (dark) => {
+        document.documentElement.classList.toggle('dark', dark);
+        const icon = btn.querySelector('i');
+        if (icon) icon.setAttribute('data-lucide', dark ? 'sun' : 'moon');
+        if (window.lucide) window.lucide.createIcons();
+        const meta = document.getElementById('meta-theme-color');
+        if (meta) meta.setAttribute('content', dark ? '#080a12' : '#f6f7fb');
+        try { localStorage.setItem('snapspend-theme', dark ? 'dark' : 'light'); } catch (e) {}
+    };
+
+    btn.addEventListener('click', () => {
+        applyTheme(!document.documentElement.classList.contains('dark'));
+    });
+
+    applyTheme(document.documentElement.classList.contains('dark'));
 }
 
 /**
@@ -384,18 +413,18 @@ async function checkSalaryBanner() {
             if (lastMonthSalary) {
                 // Precompile draft click action
                 const banner = document.createElement('div');
-                banner.className = "bg-amber-50 border border-amber-200/60 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 animate-fade-in mb-4";
+                banner.className = "bg-amber-50 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-900/60 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 animate-fade-in mb-4";
                 banner.innerHTML = `
                     <div class="flex items-start gap-2.5">
-                        <div class="bg-amber-100 p-1.5 rounded-lg text-amber-700 mt-0.5">
+                        <div class="bg-amber-100 dark:bg-amber-900/60 p-1.5 rounded-lg text-amber-700 dark:text-amber-300 mt-0.5">
                             <i data-lucide="info" class="w-4 h-4"></i>
                         </div>
                         <div>
-                            <p class="text-xs font-semibold text-amber-900">Salary Entry Missing</p>
-                            <p class="text-[10px] text-amber-705">Salary is not logged for ${getMonthName(selectedMonth)}. Would you like to copy last month's salary input of <b>${formatCurrency(lastMonthSalary.amount)}</b> as a draft?</p>
+                            <p class="text-xs font-semibold text-amber-900 dark:text-amber-200">Salary Entry Missing</p>
+                            <p class="text-[11px] text-amber-700/80 dark:text-amber-300/80">Salary is not logged for ${getMonthName(selectedMonth)}. Would you like to copy last month's salary input of <b>${formatCurrency(lastMonthSalary.amount)}</b> as a draft?</p>
                         </div>
                     </div>
-                    <button id="btn-copy-salary-banner" class="shrink-0 bg-amber-600 hover:bg-amber-700 text-white rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all shadow-md shadow-amber-600/10 cursor-pointer">
+                    <button id="btn-copy-salary-banner" class="shrink-0 bg-amber-600 hover:bg-amber-700 text-white rounded-xl px-3.5 py-2 text-[11px] font-semibold transition-all shadow-md shadow-amber-600/20 cursor-pointer">
                         Copy Draft Salary
                     </button>
                 `;
@@ -424,31 +453,36 @@ function triggerSalaryDraftCreator(lastMonthSalary) {
        // Open dynamic Add Modal prefilled
     const modalContent = `
         <div class="p-1">
-            <h3 class="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2 mb-1">
-                <i data-lucide="wallet" class="text-blue-600"></i> Review Draft Salary
-            </h3>
-            <p class="text-slate-500 text-xs mb-5">Review last month's salary parameters before posting to database.</p>
+            <div class="flex items-center gap-3 mb-5">
+                <span class="bg-brand-gradient p-2.5 rounded-xl text-white shadow-lg shadow-indigo-500/30">
+                    <i data-lucide="wallet" class="w-4 h-4"></i>
+                </span>
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-none">Review Draft Salary</h3>
+                    <p class="text-slate-500 dark:text-slate-400 text-xs mt-1">Review last month's salary parameters before posting to database.</p>
+                </div>
+            </div>
             
             <form id="draft-salary-form" class="space-y-4">
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Income Source</label>
-                    <input type="text" value="Salary" disabled class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-600 outline-none font-medium text-xs cursor-not-allowed" />
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Income Source</label>
+                    <input type="text" value="Salary" disabled class="w-full px-3.5 py-2.5 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-400 outline-none font-medium text-xs cursor-not-allowed" />
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Credited Date</label>
-                    <input type="date" id="draft-salary-date" required value="${targetDateStr}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 outline-none rounded-lg focus:border-blue-500 text-xs" />
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Credited Date</label>
+                    <input type="date" id="draft-salary-date" required value="${targetDateStr}" class="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 outline-none rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all text-xs text-slate-900 dark:text-slate-100" />
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Amount (€)</label>
-                    <input type="number" id="draft-salary-amount" required value="${lastMonthSalary.amount}" min="0.01" step="0.01" placeholder="Enter amount" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 outline-none rounded-lg focus:border-blue-500 font-mono text-xs" />
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Amount (€)</label>
+                    <input type="number" id="draft-salary-amount" required value="${lastMonthSalary.amount}" min="0.01" step="0.01" placeholder="Enter amount" class="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 outline-none rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all font-mono text-xs text-slate-900 dark:text-slate-100" />
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Note (Optional)</label>
-                    <input type="text" id="draft-salary-note" placeholder="Write observation notes here" value="${escapeHTML(lastMonthSalary.note || '')}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 outline-none rounded-lg focus:border-blue-500 text-xs" />
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Note (Optional)</label>
+                    <input type="text" id="draft-salary-note" placeholder="Write observation notes here" value="${escapeHTML(lastMonthSalary.note || '')}" class="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 outline-none rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all text-xs text-slate-900 dark:text-slate-100" />
                 </div>
                 <div class="grid grid-cols-2 gap-3 pt-2">
-                    <button type="button" id="btn-cancel-draft-modal" class="py-2 border border-slate-200 text-slate-600 font-medium rounded-lg text-xs hover:bg-slate-50 transition-all">Cancel</button>
-                    <button type="submit" class="py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium shadow-lg shadow-blue-600/10 transition-all flex items-center justify-center gap-1">
+                    <button type="button" id="btn-cancel-draft-modal" class="py-2.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer">Cancel</button>
+                    <button type="submit" class="py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-1.5 cursor-pointer">
                         <i data-lucide="check" class="w-3.5 h-3.5"></i> Save Salary Record
                     </button>
                 </div>
@@ -497,47 +531,79 @@ function triggerSalaryDraftCreator(lastMonthSalary) {
 function renderAuthScreen(customErrorMsg = "") {
     const el = document.getElementById('app-content');
     el.innerHTML = `
-        <div class="max-w-md mx-auto my-14 bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-2xl">
-            <div class="text-center mb-6">
-                <div class="bg-blue-100 w-12 h-12 rounded-xl text-blue-600 flex items-center justify-center mx-auto mb-3">
-                    <i data-lucide="wallet" class="w-8 h-8"></i>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 max-w-4xl mx-auto my-6 md:my-14 items-stretch animate-fade-in">
+            <!-- Brand Panel -->
+            <div class="hidden md:flex flex-col justify-between relative overflow-hidden rounded-3xl bg-brand-gradient p-8 text-white shadow-2xl shadow-indigo-500/30">
+                <div class="glow-orb w-64 h-64 bg-white/15 -top-20 -right-20"></div>
+                <div class="glow-orb w-48 h-48 bg-fuchsia-400/30 -bottom-16 -left-16"></div>
+                <div class="relative z-10">
+                    <div class="bg-white/15 backdrop-blur-sm w-14 h-14 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+                        <i data-lucide="wallet" class="w-7 h-7"></i>
+                    </div>
+                    <h2 class="text-3xl font-black tracking-tight leading-tight">Your money,\nbeautifully managed.</h2>
+                    <p class="text-white/80 text-sm mt-3 leading-relaxed max-w-xs">Track income, scan receipts, and let AI answer anything about your spending.</p>
                 </div>
-                <h2 class="text-2xl font-bold tracking-tight text-slate-900">SnapSpend</h2>
-                <p class="text-slate-500 text-xs mt-1">AI Personal Finance. Manage your funds securely.</p>
+                <ul class="relative z-10 space-y-3 text-sm text-white/90">
+                    <li class="flex items-center gap-2.5">
+                        <span class="bg-white/15 rounded-lg p-1.5"><i data-lucide="scan-line" class="w-4 h-4"></i></span>
+                        Smart receipt scanning
+                    </li>
+                    <li class="flex items-center gap-2.5">
+                        <span class="bg-white/15 rounded-lg p-1.5"><i data-lucide="bot" class="w-4 h-4"></i></span>
+                        AI spending assistant
+                    </li>
+                    <li class="flex items-center gap-2.5">
+                        <span class="bg-white/15 rounded-lg p-1.5"><i data-lucide="pie-chart" class="w-4 h-4"></i></span>
+                        Insightful monthly analytics
+                    </li>
+                </ul>
             </div>
 
-            ${customErrorMsg ? `
-                <div class="bg-red-50 border border-red-100 rounded-xl p-3 text-center mb-4">
-                    <p class="text-xs text-red-600 font-semibold">${escapeHTML(customErrorMsg)}</p>
+            <!-- Form Card -->
+            <div class="glass-surface rounded-3xl p-6 sm:p-8 shadow-2xl shadow-slate-900/10 dark:shadow-black/40 border border-slate-200/60 dark:border-slate-700/50">
+                <div class="text-center mb-6 md:hidden">
+                    <div class="bg-brand-gradient w-14 h-14 rounded-2xl text-white flex items-center justify-center mx-auto mb-3 shadow-lg shadow-indigo-500/30">
+                        <i data-lucide="wallet" class="w-7 h-7"></i>
+                    </div>
                 </div>
-            ` : ''}
-
-            <form id="auth-main-form" class="space-y-4">
-                <div id="username-field-container" class="hidden">
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Username</label>
-                    <input type="text" id="auth-username" placeholder="Choose a username" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 outline-none rounded-xl focus:border-blue-500 focus:bg-white text-xs font-medium transition-all" />
-                </div>
-                <div>
-                    <label id="auth-identity-label" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Email address or Username</label>
-                    <input type="text" id="auth-email" required placeholder="Username or email" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 outline-none rounded-xl focus:border-blue-500 focus:bg-white text-xs font-medium transition-all" />
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Password</label>
-                    <input type="password" id="auth-password" required placeholder="Choose a password" minlength="6" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 outline-none rounded-xl focus:border-blue-500 focus:bg-white text-xs font-medium transition-all z-20" />
+                <div class="mb-6">
+                    <h2 class="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Welcome back</h2>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">Sign in to your SnapSpend account to continue.</p>
                 </div>
 
-                <div class="pt-2">
-                    <button type="submit" id="btn-auth-submit" class="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-semibold shadow-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer">
-                        <i data-lucide="log-in" class="w-3.5 h-3.5"></i> Sign In to Account
-                    </button>
-                </div>
-            </form>
+                ${customErrorMsg ? `
+                    <div class="bg-rose-50 dark:bg-rose-950/50 border border-rose-100 dark:border-rose-900/60 rounded-xl p-3 text-center mb-4">
+                        <p class="text-xs text-rose-600 dark:text-rose-300 font-semibold">${escapeHTML(customErrorMsg)}</p>
+                    </div>
+                ` : ''}
 
-            <div class="text-center mt-6 pt-5 border-t border-slate-100 flex flex-col gap-2">
-                <p class="text-xs text-slate-500">
-                    Don't have an enterprise account? 
-                    <button id="btn-auth-toggle" class="text-blue-600 hover:text-blue-700 font-bold transition-all ml-1 cursor-pointer">Create Account</button>
-                </p>
+                <form id="auth-main-form" class="space-y-4">
+                    <div id="username-field-container" class="hidden">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Username</label>
+                        <input type="text" id="auth-username" placeholder="Choose a username" class="w-full px-3.5 py-2.5 bg-white/80 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 outline-none rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:bg-white dark:focus:bg-slate-900 text-sm text-slate-900 dark:text-slate-100 transition-all" />
+                    </div>
+                    <div>
+                        <label id="auth-identity-label" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Email address or Username</label>
+                        <input type="text" id="auth-email" required placeholder="Username or email" class="w-full px-3.5 py-2.5 bg-white/80 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 outline-none rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:bg-white dark:focus:bg-slate-900 text-sm text-slate-900 dark:text-slate-100 transition-all" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Password</label>
+                        <input type="password" id="auth-password" required placeholder="Choose a password" minlength="6" class="w-full px-3.5 py-2.5 bg-white/80 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 outline-none rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:bg-white dark:focus:bg-slate-900 text-sm text-slate-900 dark:text-slate-100 transition-all z-20" />
+                    </div>
+
+                    <div class="pt-2">
+                        <button type="submit" id="btn-auth-submit" class="w-full py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl font-semibold shadow-lg shadow-indigo-500/25 transition-all text-sm flex items-center justify-center gap-1.5 cursor-pointer">
+                            <i data-lucide="log-in" class="w-4 h-4"></i> Sign In to Account
+                        </button>
+                    </div>
+                </form>
+
+                <div class="text-center mt-6 pt-5 border-t border-slate-200/70 dark:border-slate-800 flex flex-col gap-2">
+                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                        Don't have an account?
+                        <button id="btn-auth-toggle" class="text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 font-bold transition-all ml-1 cursor-pointer">Create Account</button>
+                    </p>
+                </div>
             </div>
         </div>
     `;
@@ -568,7 +634,7 @@ function renderAuthScreen(customErrorMsg = "") {
             mode = 'signin';
             btnSubmit.innerHTML = `<i data-lucide="log-in" class="w-3.5 h-3.5"></i> Sign In to Account`;
             authToggle.textContent = 'Create Account';
-            form.closest('div').querySelector('p').firstChild.textContent = `Don't have an enterprise account? `;
+            form.closest('div').querySelector('p').firstChild.textContent = `Don't have an account? `;
             
             usernameContainer.classList.add('hidden');
             authUsernameInput.required = false;
@@ -670,10 +736,11 @@ export function showModal(htmlContent, onOpenCallback = null) {
     
     container.innerHTML = htmlContent;
     overlay.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
     
     setTimeout(() => {
-        container.classList.remove('scale-95', 'opacity-0');
-        container.classList.add('scale-100', 'opacity-100');
+        container.classList.remove('opacity-0', 'translate-y-8');
+        container.classList.add('opacity-100', 'translate-y-0');
         if (window.lucide) window.lucide.createIcons();
         if (onOpenCallback) onOpenCallback();
     }, 20);
@@ -683,12 +750,13 @@ export function closeModal() {
     const overlay = document.getElementById('global-modal');
     const container = document.getElementById('global-modal-container');
     
-    container.classList.remove('scale-100', 'opacity-100');
-    container.classList.add('scale-95', 'opacity-0');
+    container.classList.remove('opacity-100', 'translate-y-0');
+    container.classList.add('opacity-0', 'translate-y-8');
     
     setTimeout(() => {
         overlay.classList.add('hidden');
-    }, 150);
+        document.body.style.overflow = '';
+    }, 200);
 }
 
 /**

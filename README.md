@@ -1,8 +1,19 @@
-# SnapSpend — Personal Wealth & Expense Tracker
+# SnapSpend — AI-Powered Expense Tracker
 
-**SnapSpend** is a privacy-first, client-side personal finance and wealth management platform built with **Vanilla JavaScript (ES6+), Tailwind CSS, Vite, and Supabase**.
+**SnapSpend** is a privacy-first, client-side expense tracker built with **Vanilla JavaScript (ES6+), Tailwind CSS, Vite, and Supabase**.
 
-Unlike generic expense trackers, SnapSpend combines **client-side AI expense classification** with a **personal balance-sheet engine**, supporting multi-asset investment tracking, anomaly detection, bank reconciliation, and compound-growth projections.
+It combines a clean expense dashboard with an **AI receipt parser** (image → structured JSON), an **AI assistant** that answers questions about your spending (natural language → SQL → grounded answer), and a separate **evaluation module** that benchmarks how accurately different models & system prompts parse receipts.
+
+---
+
+## Features
+
+- **Login / Sign-up** — username + email + password via Supabase Auth; profiles, income sources and categories are seeded automatically.
+- **Dashboard** — monthly income, expenses and net savings, plus a **spending-by-category pie chart** across exactly five categories: **Groceries, Pharmacy, Travel, Households, Miscellaneous**.
+- **Income** — log salary/bonus credits per month, with a one-click "copy last month's salary" draft.
+- **Expenses** — manual entry (with on-device Naive Bayes category suggestions), CSV import, and **AI receipt scanning** (upload a photo → structured JSON review → save).
+- **AI Assistant** — ask questions in plain English; a Supabase Edge Function translates them to safe, user-scoped SQL and returns a grounded answer with the query used.
+- **Evaluation module** — standalone page that benchmarks any number of models × system prompts on receipt images against ground-truth JSON and scores accuracy.
 
 ---
 
@@ -12,13 +23,13 @@ Unlike generic expense trackers, SnapSpend combines **client-side AI expense cla
 | ------------------ | ---------------------------------------- |
 | **Frontend**       | Vanilla JavaScript (ES6+), HTML5         |
 | **Styling**        | Tailwind CSS v4                          |
-| **Icons**          | Lucide Icons                             |
 | **Fonts**          | Inter, JetBrains Mono                    |
 | **Build Tool**     | Vite 6                                   |
 | **Database**       | PostgreSQL via Supabase                  |
 | **Authentication** | Supabase Auth                            |
 | **Security**       | PostgreSQL Row Level Security (RLS)      |
-| **PDF Generation** | jsPDF, jsPDF-AutoTable                   |
+| **Receipt Parser** | Gemini API / OpenRouter (model-agnostic) |
+| **AI Assistant**   | Supabase Edge Function (text-to-SQL)     |
 | **Testing**        | Node.js Native Test Runner (`node:test`) |
 
 ---
@@ -29,304 +40,208 @@ Unlike generic expense trackers, SnapSpend combines **client-side AI expense cla
 SnapSpend/
 │
 ├── css/
-│   └── main.css                 # Base styles & fluid typography
+│   └── main.css                    # Base styles & fluid typography
 │
 ├── js/
-│   ├── app.js                   # Application router & authentication UI
-│   ├── banks.js                 # Banking ledger workspace
-│   ├── classifier.js            # On-device Naive Bayes classifier
-│   ├── dashboard.js             # Financial dashboard & SVG charts
-│   ├── expenses.js              # Expense management & anomaly detection
-│   ├── future-wealth.js         # Wealth growth & compounding simulators
-│   ├── income.js                # Income management
-│   ├── investments.js           # Multi-asset investment ledger
-│   ├── pdf-generator.js         # PDF report generation
-│   ├── reports.js               # Financial health reports
-│   ├── supabase.js              # Supabase client & session management
-│   └── utils.js                 # Utilities, formatting & security helpers
+│   ├── app.js                      # Application router & authentication UI
+│   ├── assistant.js                # AI assistant chat view (text-to-SQL)
+│   ├── categories.js               # Canonical categories + granular tag mapping
+│   ├── classifier.js               # On-device Naive Bayes category classifier
+│   ├── dashboard.js                # Dashboard & spending-by-category pie chart
+│   ├── expenses.js                 # Expense management & receipt scanning
+│   ├── income.js                   # Income management
+│   ├── parserEngine.js             # Model-agnostic receipt → JSON parser
+│   ├── supabase.js                 # Supabase client & session management
+│   ├── utils.js                    # Utilities, formatting & security helpers
+│   └── eval/
+│       ├── eval.js                 # Evaluation harness UI
+│       └── metrics.js              # Accuracy scoring functions
+│
+├── eval/
+│   ├── dataset/
+│   │   ├── README.md               # Dataset guide & ground-truth format
+│   │   └── ground-truth.json       # Ground-truth template
+│
+├── eval.html                       # Standalone evaluation module page
+│
+├── supabase/
+│   ├── config.toml                 # Edge function config
+│   ├── functions/assistant/
+│   │   └── index.ts                # AI assistant edge function (Deno)
+│   └── migrations/
+│       └── 0001_canonical_categories.sql   # Upgrade script for existing databases
 │
 ├── tests/
-│   └── classifier.test.js       # Naive Bayes classifier tests
+│   ├── classifier.test.js          # Naive Bayes classifier tests
+│   └── metrics.test.js             # Evaluation metrics tests
 │
-├── .env.example                 # Environment variable template
-├── .gitignore                   # Git ignore rules
-├── CONTRIBUTING.md              # Contribution guidelines
-├── index.html                   # Main application shell
-├── LICENSE                      # MIT License
-├── package.json                 # Dependencies & npm scripts
-├── schema.sql                   # PostgreSQL schema & RLS policies
-├── SECURITY.md                  # Security disclosure policy
-├── tsconfig.json                # TypeScript configuration
-└── vite.config.ts               # Vite configuration
+├── .env.example                    # Environment variable template
+├── index.html                      # Main application shell
+├── package.json                    # Dependencies & npm scripts
+├── schema.sql                      # Fresh PostgreSQL schema & RLS policies
+└── vite.config.ts                  # Vite configuration
 ```
 
 ---
 
-# Getting Started
+## Getting Started
 
-## Prerequisites
+### Prerequisites
 
-Make sure you have the following installed:
+- **Node.js:** v18.0.0 or higher
+- **npm:** v9.0.0 or higher
+- **Supabase Account:** a free Supabase project
+- **Supabase CLI** (only for deploying the AI Assistant edge function)
 
-* **Node.js:** v18.0.0 or higher
-* **npm:** v9.0.0 or higher
-* **Supabase Account:** A free Supabase project
+### 1. Configure Supabase
 
----
+1. Create a new project from your Supabase dashboard.
+2. Open the **SQL Editor**.
+3. Execute `schema.sql` from this repository against the `snapspend_db` database (fresh database).
+   - **Upgrading an existing SnapSpend database?** Run `supabase/migrations/0001_canonical_categories.sql` instead — it preserves your expense data, remaps old categories onto the canonical four, and drops the removed bank/investment tables. **Back up your database first.**
+4. Copy `.env.example` to `.env` and add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 
-## 1. Clone the Repository
-
-```bash
-git clone https://github.com/MohammeddArsh/SnapSpend.git
-cd SnapSpend
-```
-
----
-
-## 2. Configure Supabase
-
-Create a new project from your Supabase dashboard.
-
-Then:
-
-1. Open the **SQL Editor**.
-2. Open `schema.sql` from this repository.
-3. Copy the complete SQL script.
-4. Execute it in the Supabase SQL Editor.
-
-This will configure:
-
-* User profiles
-* Income records
-* Bank accounts
-* Expenses
-* Categories
-* Investments
-* Row Level Security policies
-
----
-
-## 3. Install Dependencies
+### 2. Install & Run
 
 ```bash
 npm install
+cp .env.example .env   # then fill in your keys
+npm run dev            # http://localhost:3000
 ```
 
----
-
-## 4. Configure Environment Variables
-
-Copy the example environment file:
-
-```bash
-cp .env.example .env
-```
-
-Then add your Supabase credentials:
-
-```env
-VITE_SUPABASE_URL=https://your-project-id.supabase.co
-VITE_SUPABASE_ANON_KEY=your-supabase-anon-key-here
-```
-
-> **Note:** Never commit your `.env` file to the repository.
-
----
-
-## 5. Start the Development Server
-
-```bash
-npm run dev
-```
-
-The application will be available at:
-
-```text
-http://localhost:3000
-```
-
----
-
-# Development Commands
+### Development Commands
 
 | Command           | Description                                       |
 | ----------------- | ------------------------------------------------- |
 | `npm run dev`     | Starts the Vite development server on port 3000   |
 | `npm run build`   | Builds the application for production             |
 | `npm run preview` | Previews the production build locally             |
-| `npm run lint`    | Runs TypeScript type checking with `tsc --noEmit` |
+| `npm run lint`    | Type checking with `tsc --noEmit`                 |
 | `npm run test`    | Runs the native Node.js test suite                |
 | `npm run clean`   | Removes production build output                   |
 
----
+### Environment Variables
 
-# Usage Guide
+All variables live in `.env` (see `.env.example`). `VITE_` variables are baked into the client bundle — never put server-side secrets in them.
 
-### 1. Create an Account
+| Variable                   | Purpose                                                        |
+| -------------------------- | -------------------------------------------------------------- |
+| `VITE_SUPABASE_URL`        | Supabase project URL (e.g. `https://your-project.supabase.co`) |
+| `VITE_SUPABASE_ANON_KEY`   | Supabase anon (public) API key                                 |
+| `VITE_GEMINI_API_KEY`      | Gemini API key — used by the receipt ParserEngine (app + eval) |
+| `VITE_OPENROUTER_API_KEY`  | OpenRouter API key — used by the evaluation module             |
 
-Register using:
-
-* Unique username
-* Email address
-* Password
-
-### 2. Explore the Dashboard
-
-The dashboard provides an overview of your financial position, including:
-
-* Total net worth
-* Monthly income
-* Monthly expenses
-* Savings rate
-* Spending breakdowns
-* Interactive SVG charts
-
-### 3. Track Income & Expenses
-
-Record your financial transactions and provide details such as:
-
-* Merchant
-* Amount
-* Date
-* Description
-* Category
-
-The Naive Bayes classifier analyzes transaction descriptions and merchant names to recommend appropriate expense categories.
-
-### 4. Manage Bank Accounts
-
-Use the banking workspace to:
-
-* Add bank accounts.
-* Track balances.
-* Maintain account ledgers.
-* Reconcile financial records.
-
-### 5. Track Investments
-
-Manage multiple asset classes from a single investment ledger:
-
-* Fixed Deposits
-* Sovereign Gold Bonds
-* Mutual Funds
-* Stocks & Equity Portfolios
-
-### 6. Simulate Future Wealth
-
-Use the wealth simulators to project potential long-term growth based on:
-
-* Initial investment
-* Periodic contributions
-* Expected returns
-* Investment duration
-* Compound growth
-
-This can be used to explore long-term savings and retirement scenarios.
-
-### 7. Export Financial Reports
-
-Generate PDF financial reports containing summarized financial information for personal record keeping.
+The AI Assistant edge function uses server-side secrets set with the Supabase CLI (see below), **not** `.env`.
 
 ---
 
-# Testing
+## Database
 
-SnapSpend uses the native **Node.js test runner (****`node:test`****)** for automated testing.
+`schema.sql` defines the following tables (all RLS-protected by `auth.uid() = user_id`):
 
-Run the test suite with:
+| Table                     | Purpose                                          |
+| ------------------------- | ------------------------------------------------ |
+| `profiles`                | Username + email per user                        |
+| `income_sources`          | Income categories (Salary, Bonus, Other)         |
+| `income_entries`          | Monthly income records                           |
+| `expense_categories`      | The 4 canonical categories per user              |
+| `expense_entries`         | One row per expense (manual or scanned receipt)  |
+| `expense_receipt_items`   | Itemized line items for scanned receipts         |
 
-```bash
-npm test
-```
-
-Current test coverage includes:
-
-* Naive Bayes classifier training
-* Classification prediction bounds
-* Merchant-name normalization
-* Category confidence thresholds
-* Fallback classification logic
+Triggers auto-derive the `month` column (`YYYY-MM`) from entry dates, and a `handle_new_user()` trigger seeds profiles, income sources, and the five categories on sign-up.
 
 ---
 
-# Security & Privacy
+## Usage
 
-Privacy is a core design principle of SnapSpend.
+### 1. Sign Up / Sign In
 
-### No Third-Party Tracking
+Register with a unique username, email, and password. A profile, income sources, and the five canonical expense categories are seeded automatically.
 
-SnapSpend does not send user financial ledger data to third-party tracking or analytics services.
+### 2. Dashboard
 
-### Client-Side AI
+The dashboard shows your monthly income, expenses, and net savings, plus a **spending-by-category pie chart** broken into exactly five categories:
 
-Expense classification runs directly in the user's browser rather than sending transaction descriptions to an external AI service.
+- **Groceries**
+- **Pharmacy**
+- **Travel**
+- **Households**
+- **Miscellaneous**
 
-### Row Level Security
+Click any metric card to jump to Income or Expenses. The month can be changed with the ribbon in the header.
 
-Financial records are protected using PostgreSQL Row Level Security.
+### 3. Income
 
-The fundamental access policy follows:
+Log salary/bonus credits per month. SnapSpend remembers last month's salary and offers to copy it as a draft.
 
-```sql
-auth.uid() = user_id
-```
+### 4. Expenses
 
-This prevents users from accessing another user's financial records through the database API.
+Record expenses manually or **scan a receipt**: upload a photo and the ParserEngine (Gemini by default) returns structured JSON (vendor, date, total, itemized lines with canonical categories) for review before saving. CSV import is also supported. Item-level categories are always normalized onto the canonical five.
 
-### Input Sanitization
+### 5. AI Assistant
 
-User-provided text is escaped before being inserted into HTML contexts to reduce XSS risks.
+Ask questions in plain English, e.g. *"How much did I spend on Groceries this month?"* or *"What was my biggest expense this year?"*
+
+The assistant uses **tool calling**: the LLM receives your question plus a system prompt with the database schema and few-shot SQL examples, decides whether to call a `query_expenses` tool, executes the (validated, read-only, user-scoped) SQL, and answers concisely from the grounded results. Questions outside its scope (anything not about your expense/income data) are answered with *"I can't answer questions outside of my scope"*.
+
+1. Deploy the edge function (once):
+   ```bash
+   supabase login
+   supabase link --project-ref YOUR_PROJECT_REF
+   supabase secrets set GEMINI_API_KEY=your-gemini-key    # required for the gemini provider
+   supabase secrets set OPENROUTER_API_KEY=your-key       # only for the openrouter provider
+   supabase functions deploy assistant
+   ```
+   (`SUPABASE_DB_URL` and `SUPABASE_JWKS` are auto-provisioned by the platform — no manual secrets needed.)
+2. In the app, open the **AI Assistant** tab and type your question.
+
+Provider and models can be configured via edge function secrets:
+
+| Secret | Default | Description |
+| --- | --- | --- |
+| `ASSISTANT_PROVIDER` | `gemini` | `gemini` (Google API) or `openrouter` |
+| `SQL_MODEL` | `gemini-3.1-flash-lite` | Gemini model used for question → SQL → answer |
+| `OPENROUTER_MODEL` | `google/gemini-3.1-flash-lite` | OpenRouter model slug when provider is `openrouter` |
+
+---
+
+## ParserEngine
+
+`js/parserEngine.js` turns receipt images into structured JSON:
+
+- **Gemini provider** (default): direct Google API with `response_schema` structured output.
+- **OpenRouter provider**: any vision-capable model via OpenRouter's unified API (JSON mode + schema in the prompt).
+
+Both normalize item categories onto the canonical four and return the same shape: `{ vendor, date, total_amount, purchased_items: [[name, quantity, price, currency, category], …] }`.
+
+---
+
+## Evaluation Module
+
+The separate **evaluation module** (`eval.html`, built at `/eval.html`) benchmarks how accurately multiple models × system prompts parse receipts:
+
+1. Drop receipt images into `eval/dataset/` and fill in `ground-truth.json` (see `eval/dataset/README.md`).
+2. Open `/eval.html` (requires `VITE_OPENROUTER_API_KEY` and/or `VITE_GEMINI_API_KEY`).
+3. Pick models (or add custom model IDs) and system prompts, then **Run Evaluation**.
+
+Metrics per (model × prompt) combination:
+
+- JSON validity, vendor match (exact & normalized), date match, total amount (exact + relative error), item count, item-name token F1, quantity match, price relative error, and canonical category match.
+- An **overall score** ranks the combinations; per-receipt details are inspectable and results can be exported as CSV or JSON.
+
+---
+
+## Security & Privacy
+
+- **No third-party tracking** — user ledger data is never sent to analytics services.
+- **Row Level Security** — every financial record is protected by `auth.uid() = user_id`.
+- **Assistant SQL safety** — the edge function only permits single `SELECT` statements, always forces `WHERE user_id = <authenticated user>`, rejects mutating keywords, and runs inside a read-only transaction.
+- **Input sanitization** — user text is HTML-escaped before rendering.
 
 > **Security Notice:** No software can guarantee absolute security. Please report suspected vulnerabilities according to the project's security disclosure policy.
 
 ---
 
-# Contributing
+## License
 
-Contributions, bug reports, and feature suggestions are welcome.
-
-Before submitting a pull request, please review `CONTRIBUTING.md`.
-
-When contributing, please ensure that:
-
-1. Existing functionality is not unintentionally broken.
-2. New functionality includes appropriate tests where applicable.
-3. Code follows the existing project structure and conventions.
-4. Sensitive credentials are never committed.
-5. Security-sensitive changes are clearly documented.
-
----
-
-# License
-
-SnapSpend is distributed under the **MIT License**.
-
-See `LICENSE` for the full license text.
-
----
-
-## Project Overview
-
-SnapSpend aims to bridge the gap between **expense tracking, personal accounting, and wealth management**.
-
-Instead of treating investments as expenses or focusing exclusively on monthly spending, SnapSpend provides a unified view of:
-
-```text
-Income
-   │
-   ├── Expenses ──────────► Spending Analysis
-   │
-   ├── Savings ───────────► Savings Rate
-   │
-   ├── Investments ───────► Wealth Tracking
-   │
-   └── Bank Accounts ─────► Balance Reconciliation
-                              │
-                              ▼
-                         Net Worth
-                              │
-                              ▼
-                    Future Wealth Projection
-```
-
-**SnapSpend — Track your money. Understand your wealth.**
+SnapSpend is distributed under the **MIT License** (see `LICENSE`).
