@@ -165,9 +165,9 @@ CREATE POLICY "Manage own investment withdrawals" ON public.investment_withdrawa
     FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 -- =========================================================================
--- 9. EXPENSE CATEGORIES
+-- 1. EXPENSE CATEGORIES
 -- =========================================================================
-CREATE TABLE public.expense_categories (
+CREATE TABLE IF NOT EXISTS public.expense_categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
     name TEXT NOT NULL,
@@ -176,52 +176,68 @@ CREATE TABLE public.expense_categories (
 );
 
 ALTER TABLE public.expense_categories ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Manage own expense categories" ON public.expense_categories;
 CREATE POLICY "Manage own expense categories" ON public.expense_categories
     FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 -- =========================================================================
--- 10. EXPENSE ENTRIES
+-- 2. CONSOLIDATED EXPENSE ENTRIES (Manual & Scanned)
 -- =========================================================================
-CREATE TABLE public.expense_entries (
+CREATE TABLE IF NOT EXISTS public.expense_entries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
-    amount NUMERIC NOT NULL,
+    amount NUMERIC(12, 2) NOT NULL,
     date DATE NOT NULL,
-    category_id UUID NOT NULL REFERENCES public.expense_categories(id) ON DELETE CASCADE,
-    note TEXT,
     month VARCHAR(7) NOT NULL, -- Format: YYYY-MM
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+    merchant TEXT,             -- Vendor name (e.g. "PENNY-MARKT GMBH" or "Coffee Shop")
+    currency VARCHAR(3) NOT NULL DEFAULT 'EUR',
+    
+    -- Entry Source Metadata
+    entry_type VARCHAR(10) NOT NULL DEFAULT 'manual' 
+        CHECK (entry_type IN ('manual', 'scanned')),
+    
+    -- Optional Audit Store for Scanned Receipts
+    raw_json JSONB,            -- Stores full raw Gemini output for audit/re-parsing
+    
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
 ALTER TABLE public.expense_entries ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Manage own expense entries" ON public.expense_entries;
 CREATE POLICY "Manage own expense entries" ON public.expense_entries
     FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
-CREATE INDEX idx_expense_entries_user_month ON public.expense_entries(user_id, month);
+CREATE INDEX IF NOT EXISTS idx_expense_entries_user_month ON public.expense_entries(user_id, month);
+CREATE INDEX IF NOT EXISTS idx_expense_entries_user_type ON public.expense_entries(user_id, entry_type);
+CREATE INDEX IF NOT EXISTS idx_expense_entries_raw_json ON public.expense_entries USING gin (raw_json);
 
 -- =========================================================================
--- 11. EXPENSE RECEIPT ITEMS (Itemized breakdown per receipt)
+-- 3. EXPENSE RECEIPT ITEMS (Line-item breakdowns for scanned receipts)
 -- =========================================================================
 CREATE TABLE IF NOT EXISTS public.expense_receipt_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
-    expense_id UUID REFERENCES public.expense_entries(id) ON DELETE CASCADE,
+    expense_id UUID NOT NULL REFERENCES public.expense_entries(id) ON DELETE CASCADE,
     item_name TEXT NOT NULL,
     quantity NUMERIC NOT NULL DEFAULT 1,
-    unit_price NUMERIC,
-    price NUMERIC NOT NULL,
-    category TEXT,
-    confidence NUMERIC,
+    unit_price NUMERIC(12, 2),
+    price NUMERIC(12, 2) NOT NULL,
+    category TEXT,            -- Specific granular tag (e.g. "Pantry", "Beverages", "Deposit")
+    confidence NUMERIC(3, 2) DEFAULT 0.95,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
 ALTER TABLE public.expense_receipt_items ENABLE ROW LEVEL SECURITY;
+
 DROP POLICY IF EXISTS "Manage own expense receipt items" ON public.expense_receipt_items;
 CREATE POLICY "Manage own expense receipt items" ON public.expense_receipt_items
     FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 CREATE INDEX IF NOT EXISTS idx_receipt_items_expense_id ON public.expense_receipt_items(expense_id);
-
+CREATE INDEX IF NOT EXISTS idx_receipt_items_user_category ON public.expense_receipt_items(user_id, category);
 
 
 -- =========================================================================

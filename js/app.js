@@ -128,9 +128,11 @@ async function ensureSeedData(userId) {
             ]);
 
             await supabase.from('expense_categories').insert([
-                { user_id: userId, name: 'Travel' },
-                { user_id: userId, name: 'Trips / Outings' },
-                { user_id: userId, name: 'Shopping' },
+                { user_id: userId, name: 'Groceries' },
+                { user_id: userId, name: 'Household' },
+                { user_id: userId, name: 'Pharmacy' },
+                { user_id: userId, name: 'Outings' },
+                { user_id: userId, name: 'Tech & Goods' },
                 { user_id: userId, name: 'Miscellaneous' }
             ]);
 

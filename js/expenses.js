@@ -2,6 +2,8 @@ import { supabase } from './supabase.js';
 import { currentUser, reFetchAndRenderCurrentView, showModal, closeModal, showActionSpinner } from './app.js';
 import { formatCurrency, escapeHTML } from './utils.js';
 import { NaiveBayesClassifier, classifyExpense, normalizeMerchantName } from './classifier.js';
+import { parseReceiptDirectly } from './parserEngine.js';
+
 /**
  * Safely parses an expense note into clean merchant name and any embedded itemized data.
  * @param {string} note 
@@ -32,73 +34,96 @@ function parseExpenseNote(note) {
 }
 
 /**
- * Helper to clean display note by stripping embedded [ITEMIZED:...] metadata
+ * Helper to safely extract a store name without depending on `note`.
  */
 function cleanNote(note) {
-    return parseExpenseNote(note).merchant;
+    if (!note) return 'General Purchase';
+    if (typeof parseExpenseNote === 'function') {
+        const parsed = parseExpenseNote(note);
+        return parsed?.merchant || note;
+    }
+    return note;
 }
 
 /**
  * Gets receipt items for an entry following priority:
  * 1. DB expense_receipt_items
- * 2. Legacy [ITEMIZED:...] note data
- * 3. Normal note (empty array)
+ * 2. Parsed raw_json.items
  */
 function getReceiptItemsForEntry(entry) {
     if (!entry) return [];
 
-    // Priority 1: DB expense_receipt_items
-    if (entry.expense_receipt_items && Array.isArray(entry.expense_receipt_items) && entry.expense_receipt_items.length > 0) {
+    // Priority 1: Direct DB expense_receipt_items relationship
+    if (Array.isArray(entry.expense_receipt_items) && entry.expense_receipt_items.length > 0) {
         return entry.expense_receipt_items;
     }
 
-    // Priority 2: Legacy [ITEMIZED:...] note data
-    const parsed = parseExpenseNote(entry.note);
-    if (parsed.itemizedData && parsed.itemizedData.length > 0) {
-        return parsed.itemizedData.map((it, idx) => ({
-            id: `embedded-${entry.id}-${idx}`,
-            expense_id: entry.id,
-            item_name: it.item_name,
-            quantity: it.quantity || 1,
-            unit_price: (typeof it.unit_price === 'number' && !isNaN(it.unit_price)) ? it.unit_price : (it.price / (it.quantity || 1)),
-            price: it.price,
-            category: it.category || 'Other',
-            confidence: 0.95
-        }));
+    // Priority 2: Parsed items inside raw_json (handles stringified JSON)
+    if (entry.raw_json) {
+        let rawObj = entry.raw_json;
+        if (typeof rawObj === 'string') {
+            try { rawObj = JSON.parse(rawObj); } catch (e) { rawObj = null; }
+        }
+        if (rawObj && Array.isArray(rawObj.items) && rawObj.items.length > 0) {
+            return rawObj.items.map((it, idx) => ({
+                id: it.id || `raw-${entry.id}-${idx}`,
+                expense_id: entry.id,
+                item_name: it.item_name || it.name || 'Item',
+                quantity: parseFloat(it.quantity) || 1,
+                unit_price: parseFloat(it.unit_price) || (parseFloat(it.price) / (parseFloat(it.quantity) || 1)),
+                price: parseFloat(it.price) || 0,
+                category: it.category || 'General'
+            }));
+        }
     }
 
-    // Priority 3: Normal note
     return [];
 }
 
 /**
  * Flattens parent expense entries into display rows.
- * If an entry has expense_receipt_items, expands them as individual rows.
- * Otherwise, outputs a single row for the parent entry.
  */
 function flattenExpenseEntries(entries, categories) {
     const rows = [];
 
     (entries || []).forEach(e => {
-        const items = getReceiptItemsForEntry(e);
-        const cNote = cleanNote(e.note);
+        // 1. Parse raw_json safely in case it's a JSON string from Supabase
+        let rawObj = e.raw_json;
+        if (typeof rawObj === 'string') {
+            try { rawObj = JSON.parse(rawObj); } catch (err) { rawObj = null; }
+        }
 
-        if (items && Array.isArray(items) && items.length > 0) {
+        // 2. Resolve store name safely
+        let storeName = e.merchant;
+        if ((!storeName || !storeName.trim()) && rawObj) {
+            storeName = rawObj.merchant || rawObj.vendor;
+        }
+        storeName = (storeName && typeof storeName === 'string' && storeName.trim()) 
+            ? storeName.trim() 
+            : 'General Purchase';
+
+        // 3. Resolve line items using helper
+        const items = getReceiptItemsForEntry(e);
+
+        // 4. Build flattened display rows
+        if (items && items.length > 0) {
             items.forEach(item => {
-                const catName = item.category || 'Other';
-                const matchedCat = categories.find(c => c.name.toLowerCase() === catName.toLowerCase());
-                const catId = matchedCat ? matchedCat.id : e.category_id;
+                const itemName = item.item_name || item.name || 'Item';
+                const catName = item.category || 'General';
+                const matchedCat = (categories || []).find(c => c.name.toLowerCase() === catName.toLowerCase());
+                const catId = matchedCat ? matchedCat.id : null;
                 const qty = typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1;
-                const qtyPrefix = qty > 1 ? `${item.item_name} (×${qty})` : item.item_name;
-                const displayNote = cNote ? `${qtyPrefix} — ${cNote}` : qtyPrefix;
+                
+                const qtyPrefix = qty > 1 ? `${itemName} (×${qty})` : itemName;
+                const displayNote = `${qtyPrefix} — ${storeName}`;
 
                 rows.push({
                     isItem: true,
-                    itemId: item.id,
+                    itemId: item.id || null,
                     expenseId: e.id,
                     date: e.date,
-                    merchant: cNote,
-                    itemName: item.item_name,
+                    merchant: storeName,
+                    itemName: itemName,
                     quantity: qty,
                     displayNote: displayNote,
                     amount: parseFloat(item.price || 0),
@@ -114,13 +139,13 @@ function flattenExpenseEntries(entries, categories) {
                 itemId: null,
                 expenseId: e.id,
                 date: e.date,
-                merchant: cNote,
-                itemName: cNote || 'No note',
+                merchant: storeName,
+                itemName: storeName,
                 quantity: 1,
-                displayNote: cNote || '—',
+                displayNote: storeName,
                 amount: parseFloat(e.amount || 0),
-                categoryName: e.expense_categories?.name || 'Uncategorized',
-                categoryId: e.category_id,
+                categoryName: 'General',
+                categoryId: null,
                 rawParent: e
             });
         }
@@ -150,7 +175,8 @@ export async function render(container, selectedMonth) {
                     id,
                     amount,
                     date,
-                    note,
+                    merchant, 
+                    raw_json, 
                     category_id,
                     expense_categories (name)
                 `)
@@ -263,180 +289,244 @@ export async function render(container, selectedMonth) {
                     </div>
                 </div>
 
-                <!-- Collapsible Categories Summary Breakdown (Requested) -->
-                <div class="space-y-3 select-none">
-                    <h3 class="font-bold text-slate-900 text-base">Collapsible Category Breakdowns</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        ${categories.map(cat => {
-                            const catRows = displayRows.filter(r => r.categoryId === cat.id || r.categoryName.toLowerCase() === cat.name.toLowerCase());
-                            const catTotal = catRows.reduce((sum, r) => sum + r.amount, 0);
-                            
-                            return `
-                                <div class="bento-card p-4 space-y-1 hover:border-slate-300 transition-all cursor-pointer" data-collapse-trigger="${cat.id}">
-                                    <div class="flex items-center justify-between">
-                                        <div class="flex items-center gap-2">
-                                            <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 transition-all transform shrink-0" data-arrow-id="${cat.id}"></i>
-                                            <span class="font-bold text-slate-800 text-xs">${escapeHTML(cat.name)}</span>
-                                        </div>
-                                        <div class="text-right">
-                                            <div class="font-mono font-bold text-slate-905 text-xs">${formatCurrency(catTotal)}</div>
-                                            <span class="text-[9px] text-slate-400">${catRows.length} entries</span>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Collapsed entries log drawer elements -->
-                                    <div id="drawer-${cat.id}" class="hidden space-y-1.5 mt-3 pt-2.5 border-t border-slate-150 text-[11px] max-h-[220px] overflow-y-auto">
-                                        ${catRows.length === 0 ? `
-                                            <p class="text-slate-400 italic py-1">No items logged in this category.</p>
-                                        ` : catRows.map(r => `
-                                            <div class="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100 text-slate-650">
-                                                <div>
-                                                    <span class="font-medium text-slate-800">${escapeHTML(r.displayNote)}</span>
-                                                    ${r.merchant ? `<span class="block text-[9px] font-sans text-slate-400">${escapeHTML(r.merchant)}</span>` : ''}
-                                                    <span class="block text-[9px] font-mono text-slate-400">${r.date}</span>
-                                                </div>
-                                                <div class="font-mono font-bold text-slate-800">${formatCurrency(r.amount)}</div>
-                                            </div>
-                                        `).join('')}
-                                    </div>
+                <!-- Category Filter Pill Bar -->
+<div class="space-y-2 select-none my-3">
+    <div class="flex items-center justify-between">
+        <label class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Filter by Category</label>
+        <span id="active-filter-label" class="text-[10px] text-slate-400 font-medium">Showing: All</span>
+    </div>
+    
+    <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-200">
+        <!-- 'All' Reset Button -->
+        <button type="button" 
+                data-category-filter="all" 
+                class="category-filter-btn active px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border bg-emerald-600 border-emerald-600 text-white shadow-sm cursor-pointer flex items-center gap-1.5">
+            <span>All Categories</span>
+            <span class="px-1.5 py-0.2 text-[10px] bg-white/20 text-white rounded-full font-mono">${displayRows.length}</span>
+        </button>
 
+        <!-- Dynamic Category Filter Buttons -->
+        ${categories.map(cat => {
+            const count = displayRows.filter(r => 
+                r.categoryId === cat.id || 
+                (r.categoryName && r.categoryName.toLowerCase() === cat.name.toLowerCase())
+            ).length;
+
+            return `
+                <button type="button" 
+                        data-category-filter="${escapeHTML(cat.name)}" 
+                        data-category-id="${cat.id}"
+                        class="category-filter-btn px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border bg-slate-100/80 border-slate-200 text-slate-600 hover:bg-slate-200/60 hover:text-slate-800 cursor-pointer flex items-center gap-1.5">
+                    <span>${escapeHTML(cat.name)}</span>
+                    <span class="px-1.5 py-0.2 text-[10px] bg-slate-200/80 text-slate-500 rounded-full font-mono">${count}</span>
+                </button>
+            `;
+        }).join('')}
+    </div>
+</div>
+                </div                
+                <!-- Primary Newest-First Expense Table List -->
+<div class="bento-card overflow-hidden">
+    <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+        <span class="text-xs font-bold text-slate-700 uppercase tracking-wider">Historical Debit Entries</span>
+        <span class="text-[10px] font-mono text-slate-400">Listed Newest First • Click Row to Expand Items</span>
+    </div>
+    <table class="w-full text-left border-collapse text-xs" id="expense-main-table">
+        <thead>
+            <tr class="bg-slate-50/80 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <th class="p-3.5 pl-4">Merchant / Store</th>
+                <th class="p-3.5 w-28">Amount</th>
+                <th class="p-3.5 w-28 hidden sm:table-cell">Date</th>
+                <th class="p-3.5 w-32 hidden md:table-cell">Items</th>
+                <th class="p-3.5 w-24 text-right pr-4">Actions</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 text-xs">
+            ${entries.length === 0 ? `
+                <tr>
+                    <td colspan="5" class="p-8 text-center text-slate-400">
+                        <i data-lucide="inbox" class="w-8 h-8 opacity-40 mx-auto mb-2"></i>
+                        <p class="font-medium text-slate-500 text-xs">No expense entries logged for this month.</p>
+                        <p class="text-[10px] text-slate-400 mt-1">Click <b>'Add Entry'</b> to record your first expense or <b>'Scan Receipt'</b> to auto-parse.</p>
+                    </td>
+                </tr>
+            ` : entries.map(entry => {
+                // Safe formatting helpers
+                const safeFormat = typeof formatCurrency === 'function' ? formatCurrency : (val) => '€' + (parseFloat(val) || 0).toFixed(2);
+                const safeEscape = typeof escapeHTML === 'function' ? escapeHTML : (val) => String(val || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+                // 1. Safely parse raw_json if string
+                let rawObj = entry.raw_json;
+                if (typeof rawObj === 'string') {
+                    try { rawObj = JSON.parse(rawObj); } catch (e) { rawObj = null; }
+                }
+
+                // 2. Resolve items with DB table priority over raw_json
+                const dbItems = Array.isArray(entry.expense_receipt_items) ? entry.expense_receipt_items : [];
+                const helperItems = (typeof getReceiptItemsForEntry === 'function') ? getReceiptItemsForEntry(entry) : [];
+                const jsonItems = (rawObj && Array.isArray(rawObj.items)) ? rawObj.items : [];
+                
+                const items = dbItems.length > 0 ? dbItems : (helperItems.length > 0 ? helperItems : jsonItems);
+                const hasItems = items.length > 0;
+
+                // 3. Resolve Merchant Name safely
+                let merchantName = entry.merchant;
+                if ((!merchantName || !merchantName.trim()) && rawObj) {
+                    merchantName = rawObj.merchant || rawObj.vendor;
+                }
+                merchantName = (merchantName && typeof merchantName === 'string' && merchantName.trim()) 
+                    ? merchantName.trim() 
+                    : 'General Purchase';
+
+                // 4. Source type check (Scanned vs Manual)
+                const isScanned = entry.entry_type === 'scanned' || !!rawObj;
+
+                const noteText = merchantName.toLowerCase();
+                const itemKeywords = hasItems 
+                    ? items.map(i => `${i.item_name || i.name || i[0] || ''}`).join(' ').toLowerCase() 
+                    : '';
+
+                return `
+                    <!-- Primary Row -->
+                    <tr class="hover:bg-slate-50/70 transition-all expense-row-element cursor-pointer select-none"
+                        data-entry-type="${isScanned ? 'scanned' : 'manual'}"
+                        data-text-note="${safeEscape((noteText + ' ' + itemKeywords).toLowerCase())}"
+                        data-text-amount="${entry.amount || 0}"
+                        data-toggle-receipt="${entry.id}">
+                        
+                        <!-- 1. Merchant / Store -->
+                        <td class="p-3.5 pl-4 font-semibold text-slate-800">
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0" data-chevron-id="${entry.id}"></i>
+                                <span class="font-bold text-slate-900">${safeEscape(merchantName)}</span>
+                            </div>
+                            <div class="pl-6 mt-1 flex items-center gap-1.5">
+                                ${isScanned ? `
+                                    <span class="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200/60 inline-flex items-center gap-1">
+                                        <i data-lucide="sparkles" class="w-2.5 h-2.5"></i> Scanned
+                                    </span>
+                                ` : `
+                                    <span class="text-[10px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200 inline-flex items-center gap-1">
+                                        <i data-lucide="pen-tool" class="w-2.5 h-2.5"></i> Manual
+                                    </span>
+                                `}
+                            </div>
+                        </td>
+
+                        <!-- 2. Amount -->
+                        <td class="p-3.5 font-mono font-bold text-rose-600">
+                            ${safeFormat(entry.amount)}
+                        </td>
+
+                        <!-- 3. Date -->
+                        <td class="p-3.5 font-mono text-slate-500 hidden sm:table-cell">
+                            ${safeEscape(entry.date)}
+                        </td>
+
+                        <!-- 4. Items Badge -->
+                        <td class="p-3.5 hidden md:table-cell">
+                            ${hasItems ? `
+                                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-semibold border border-emerald-200/80">
+                                    <i data-lucide="receipt" class="w-3 h-3 text-emerald-500"></i> ${items.length} item${items.length > 1 ? 's' : ''}
+                                </span>
+                            ` : `
+                                <span class="inline-flex items-center px-2.5 py-0.5 bg-slate-100 text-slate-500 rounded-full text-[10px] font-medium border border-slate-200">
+                                    Single Entry
+                                </span>
+                            `}
+                        </td>
+
+                        <!-- 5. Actions -->
+                        <td class="p-3.5 text-right pr-4">
+                            <div class="inline-flex items-center gap-1">
+                                <button data-edit-expense-id="${entry.id}" class="p-1.5 text-slate-400 hover:text-emerald-600 rounded hover:bg-slate-100 cursor-pointer" title="Edit Expense">
+                                    <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+                                </button>
+                                <button data-delete-expense-id="${entry.id}" class="p-1.5 text-slate-400 hover:text-red-500 rounded hover:bg-slate-100 cursor-pointer" title="Delete Expense">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Collapsible Itemized Receipt Drawer -->
+                    <tr id="receipt-details-${entry.id}" class="hidden bg-slate-50/80 border-b border-slate-200 transition-all">
+                        <td colspan="5" class="p-3 sm:p-4 pl-6 sm:pl-10">
+                            <div class="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-sm space-y-2.5">
+                                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                                    <div class="flex items-center gap-2">
+                                        <div class="p-1.5 bg-emerald-100/70 text-emerald-600 rounded-lg">
+                                            <i data-lucide="receipt" class="w-3.5 h-3.5"></i>
+                                        </div>
+                                        <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                                            Receipt Breakdown (${items.length})
+                                        </span>
+                                    </div>
+                                    <span class="text-xs font-mono font-bold text-slate-800">
+                                        Receipt Total: ${formatCurrency(entry.amount)}
+                                    </span>
                                 </div>
-                            `;
-                        }).join('')}
-                    </div>
-                </div                <!-- Primary Newest-First Expense Table List -->
-                <div class="bento-card overflow-hidden">
-                    <div class="p-4 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
-                        <span class="text-xs font-bold text-slate-705 uppercase tracking-wider">Historical Debit Entries</span>
-                        <span class="text-[10px] font-mono text-slate-405">Listed Newest First • Click Row to Expand Items</span>
-                    </div>
-                    <table class="w-full text-left border-collapse" id="expense-main-table">
-                        <thead>
-                            <tr class="bg-slate-50/20 border-b border-slate-100 text-[10px] font-bold text-slate-450 uppercase tracking-wider">
-                                <th class="p-4">Category</th>
-                                <th class="p-4">Amount</th>
-                                <th class="p-4 hidden sm:table-cell">Date</th>
-                                <th class="p-4 hidden md:table-cell">Memo/Note</th>
-                                <th class="p-4 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100 text-xs">
-                             ${entries.length === 0 ? `
-                                 <tr>
-                                     <td colspan="5" class="p-8 text-center text-slate-400">
-                                         <i data-lucide="inbox" class="w-8 h-8 opacity-40 mx-auto mb-2"></i>
-                                         <p class="font-medium text-slate-500 text-xs">No expense entries logged for this month.</p>
-                                         <p class="text-[10px] text-slate-400 mt-1">Click <b>'Add Entry'</b> to record your first expense or <b>'Import CSV'</b> to upload bank statements.</p>
-                                     </td>
-                                                              ` : entries.map(entry => {
-                                const items = getReceiptItemsForEntry(entry);
-                                const hasItems = items.length > 0;
-                                const catName = entry.expense_categories?.name || 'Uncategorized';
-                                const parsedNote = parseExpenseNote(entry.note);
-                                const cleanMerchant = parsedNote.merchant;
-                                const noteText = cleanMerchant.toLowerCase();
-                                const itemKeywords = hasItems ? items.map(i => `${i.item_name} ${i.category}`).join(' ').toLowerCase() : '';
+                                ${hasItems ? `
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full text-left text-xs">
+                                            <thead>
+                                                <tr class="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 bg-slate-50/50">
+                                                    <th class="py-2 px-3">Item Description</th>
+                                                    <th class="py-2 px-2 w-16 text-center">Qty</th>
+                                                    <th class="py-2 px-3 w-24 text-right">Price</th>
+                                                    <th class="py-2 px-3 w-36">Category</th>
+                                                    <th class="py-2 px-3 w-16 text-right">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-slate-100">
+                                                ${items.map(item => {
+                                                    const itemName = item.item_name || item.name || item[0] || 'Item';
+                                                    const itemQty = item.quantity || item[1] || 1;
+                                                    const itemPrice = item.price || item[2] || 0;
+                                                    const itemCat = item.category || item[4] || 'Other';
+                                                    const itemId = item.id || '';
 
-                                return `
-                                    <tr class="hover:bg-slate-50/70 transition-all expense-row-element cursor-pointer select-none"
-                                        data-cat-id="${entry.category_id}"
-                                        data-cat-name="${escapeHTML(catName.toLowerCase())}"
-                                        data-text-note="${escapeHTML((noteText + ' ' + itemKeywords).toLowerCase())}"
-                                        data-text-amount="${entry.amount}"
-                                        data-toggle-receipt="${entry.id}">
-                                        <td class="p-4 font-semibold text-slate-800">
-                                            <div class="flex items-center gap-2">
-                                                <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0" data-chevron-id="${entry.id}"></i>
-                                                <span>${escapeHTML(catName)}</span>
-                                            </div>
-                                            <span class="block sm:hidden text-[10px] font-mono text-slate-400 leading-none mt-1">${entry.date}</span>
-                                        </td>
-                                        <td class="p-4 font-mono font-bold text-rose-600">${formatCurrency(entry.amount)}</td>
-                                        <td class="p-4 font-mono text-slate-505 hidden sm:table-cell">${entry.date}</td>
-                                        <td class="p-4 text-slate-700 hidden md:table-cell max-w-[260px] truncate" title="${escapeHTML(cleanMerchant)}">
-                                            <span class="font-semibold text-slate-900">${escapeHTML(cleanMerchant || '—')}</span>
-                                            ${hasItems ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-medium border border-emerald-200/70 ml-2"><i data-lucide="receipt" class="w-3 h-3"></i> ${items.length} item${items.length > 1 ? 's' : ''}</span>` : ''}
-                                        </td>
-                                        <td class="p-4 text-right">
-                                            <div class="inline-flex items-center gap-1">
-                                                <button data-edit-expense-id="${entry.id}" class="p-1.5 text-slate-400 hover:text-emerald-600 rounded hover:bg-slate-100 cursor-pointer" title="Edit Expense">
-                                                    <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
-                                                </button>
-                                                <button data-delete-expense-id="${entry.id}" class="p-1.5 text-slate-400 hover:text-red-500 rounded hover:bg-slate-100 cursor-pointer" title="Delete Expense">
-                                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-
-                                    <tr id="receipt-details-${entry.id}" class="hidden bg-slate-50/80 border-b border-slate-200 transition-all">
-                                        <td colspan="5" class="p-3 sm:p-4 pl-6 sm:pl-10">
-                                            <div class="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-sm space-y-2.5">
-                                                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-                                                    <div class="flex items-center gap-2">
-                                                        <div class="p-1.5 bg-emerald-100/70 text-emerald-600 rounded-lg">
-                                                            <i data-lucide="receipt" class="w-3.5 h-3.5"></i>
-                                                        </div>
-                                                        <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                                                            Receipt Items (${items.length})
-                                                        </span>
-                                                    </div>
-                                                    <span class="text-xs font-mono font-bold text-slate-800">
-                                                        Receipt Total: ${formatCurrency(entry.amount)}
-                                                    </span>
-                                                </div>
-                                                ${hasItems ? `
-                                                    <div class="overflow-x-auto">
-                                                        <table class="w-full text-left text-xs">
-                                                            <thead>
-                                                                <tr class="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 bg-slate-50/50">
-                                                                    <th class="py-2 px-3">Item Description</th>
-                                                                    <th class="py-2 px-2 w-16 text-center">Qty</th>
-                                                                    <th class="py-2 px-3 w-24 text-right">Price</th>
-                                                                    <th class="py-2 px-3 w-36">Category</th>
-                                                                    <th class="py-2 px-3 w-16 text-right">Actions</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody class="divide-y divide-slate-100">
-                                                                ${items.map(item => `
-                                                                    <tr class="hover:bg-slate-50/60 transition-all font-sans">
-                                                                        <td class="py-2 px-3 font-medium text-slate-800">${escapeHTML(item.item_name)}</td>
-                                                                        <td class="py-2 px-2 font-mono text-center text-slate-600">${item.quantity > 1 ? `<span class="px-1.5 py-0.5 bg-slate-100 rounded text-[10px] font-semibold text-slate-700">×${item.quantity}</span>` : '1'}</td>
-                                                                        <td class="py-2 px-3 font-mono text-right font-bold text-rose-600">${formatCurrency(item.price)}</td>
-                                                                        <td class="py-2 px-3">
-                                                                            <span class="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full text-[10px] font-medium">
-                                                                                ${escapeHTML(item.category || 'Other')}
-                                                                            </span>
-                                                                        </td>
-                                                                        <td class="py-2 px-3 text-right">
-                                                                            <div class="inline-flex items-center gap-1">
-                                                                                <button data-edit-receipt-item-id="${item.id}" data-parent-expense-id="${entry.id}" class="p-1 text-slate-400 hover:text-emerald-600 rounded hover:bg-slate-100 cursor-pointer" title="Edit Item">
-                                                                                    <i data-lucide="edit-2" class="w-3 h-3"></i>
-                                                                                </button>
-                                                                                <button data-delete-receipt-item-id="${item.id}" data-parent-expense-id="${entry.id}" class="p-1 text-slate-400 hover:text-red-500 rounded hover:bg-slate-100 cursor-pointer" title="Delete Item">
-                                                                                    <i data-lucide="trash-2" class="w-3 h-3"></i>
-                                                                                </button>
-                                                                            </div>
-                                                                        </td>
-                                                                    </tr>
-                                                                `).join('')}
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-                                                ` : `
-                                                    <div class="py-3 px-4 text-center text-slate-500 text-xs italic bg-slate-50 rounded-lg border border-slate-100">
-                                                        No itemized receipt line items saved for this transaction.
-                                                    </div>
-                                                `}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                                                    return `
+                                                        <tr class="hover:bg-slate-50/60 transition-all font-sans">
+                                                            <td class="py-2 px-3 font-medium text-slate-800">${escapeHTML(itemName)}</td>
+                                                            <td class="py-2 px-2 font-mono text-center text-slate-600">
+                                                                ${itemQty > 1 ? `<span class="px-1.5 py-0.5 bg-slate-100 rounded text-[10px] font-semibold text-slate-700">×${itemQty}</span>` : '1'}
+                                                            </td>
+                                                            <td class="py-2 px-3 font-mono text-right font-bold text-rose-600">${formatCurrency(itemPrice)}</td>
+                                                            <td class="py-2 px-3">
+                                                                <span class="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full text-[10px] font-medium">
+                                                                    ${escapeHTML(itemCat)}
+                                                                </span>
+                                                            </td>
+                                                            <td class="py-2 px-3 text-right">
+                                                                <div class="inline-flex items-center gap-1">
+                                                                    <button data-edit-receipt-item-id="${itemId}" data-parent-expense-id="${entry.id}" class="p-1 text-slate-400 hover:text-emerald-600 rounded hover:bg-slate-100 cursor-pointer" title="Edit Item">
+                                                                        <i data-lucide="edit-2" class="w-3 h-3"></i>
+                                                                    </button>
+                                                                    <button data-delete-receipt-item-id="${itemId}" data-parent-expense-id="${entry.id}" class="p-1 text-slate-400 hover:text-red-500 rounded hover:bg-slate-100 cursor-pointer" title="Delete Item">
+                                                                        <i data-lucide="trash-2" class="w-3 h-3"></i>
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    `;
+                                                }).join('')}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ` : `
+                                    <div class="py-3 px-4 text-center text-slate-500 text-xs italic bg-slate-50 rounded-lg border border-slate-100">
+                                        No itemized receipt line items saved for this transaction.
+                                    </div>
+                                `}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('')}
+        </tbody>
+    </table>
+</div>
         `;
 
         setupExpensesListeners(categories, entries, selectedMonth, classifier, trainingData);
@@ -466,6 +556,7 @@ export async function render(container, selectedMonth) {
 /**
  * Event triggers of expense list and breakdown drawers
  */
+
 function setupExpensesListeners(categories, entries, selectedMonth, classifier, trainingData) {
     // 1. ADD MODAL TRIGGER
     document.getElementById('btn-add-expense').addEventListener('click', () => {
@@ -864,77 +955,26 @@ function openExpenseModal(entry, categories, selectedMonth, classifier, training
                     return;
                 }
 
-                const MAX_SIZE = 10 * 1024 * 1024; // 10MB
-                if (file.size > MAX_SIZE) {
-                    setOcrStatus('Selected file is too large (max 10MB). Please select a smaller receipt image.', 'error');
-                    fileInput.value = '';
-                    return;
-                }
-
                 // UI Loading state
                 btnScan.disabled = true;
                 btnScan.classList.add('opacity-60', 'cursor-not-allowed');
                 btnText.textContent = 'Scanning...';
-                setOcrStatus('Uploading receipt and extracting data via OCR service...', 'info');
-
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+                setOcrStatus('Extracting receipt data via Gemini API...', 'info');
 
                 try {
-                    const formData = new FormData();
-                    formData.append('files', file);
+                    // Call Gemini directly from the client!
+                    const ocrData = await parseReceiptDirectly(file);
 
-                    const apiBase = import.meta.env.VITE_OCR_API_URL || 'http://localhost:8000';
-                    const response = await fetch(`${apiBase}/parse-receipt`, {
-                        method: 'POST',
-                        body: formData,
-                        signal: controller.signal
-                    });
-
-                    clearTimeout(timeoutId);
-
-                    if (!response.ok) {
-                        throw new Error(`Server returned HTTP ${response.status}`);
-                    }
-
-                    const json = await response.json();
+                    setOcrStatus('✓ Receipt parsed! Opening Itemized Review...', 'success');
                     
-                    if (!json || !Array.isArray(json.processed) || json.processed.length === 0) {
-                        throw new Error('Invalid or unexpected OCR response format.');
-                    }
-
-                    const resultItem = json.processed[0];
-                    if (resultItem.status === 'failed') {
-                        throw new Error(resultItem.error || 'Failed to parse receipt.');
-                    }
-                    if (resultItem.status === 'skipped') {
-                        throw new Error(resultItem.reason || 'File was skipped by backend.');
-                    }
-
-                    const ocrData = resultItem.data;
-                    if (!ocrData) {
-                        throw new Error('No extracted receipt data returned.');
-                    }
-
-                    setOcrStatus('✓ Receipt parsed! Opening Itemized Receipt Review...', 'success');
-                    
-                    // Close standard modal and open interactive itemized review modal
                     closeModal();
                     setTimeout(() => {
                         openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier);
                     }, 150);
 
-
                 } catch (err) {
-                    clearTimeout(timeoutId);
-                    if (err.name === 'AbortError') {
-                        setOcrStatus('OCR processing timed out. Please check server or try again.', 'error');
-                    } else if (err.message && err.message.length > 0) {
-                        setOcrStatus(`OCR Error: ${err.message}`, 'error');
-                    } else {
-                        setOcrStatus('OCR service unavailable or returned an error. Please enter details manually.', 'error');
-                    }
-                    console.error("Receipt OCR parse failure:", err);
+                    setOcrStatus(`Parsing Error: ${err.message}`, 'error');
+                    console.error("Receipt parse failure:", err);
                 } finally {
                     btnScan.disabled = false;
                     btnScan.classList.remove('opacity-60', 'cursor-not-allowed');
@@ -1253,7 +1293,7 @@ function openCsvImportModal(categories, selectedMonth) {
  */
 function openCategoriesModal(categories) {
     const html = `
-        <div>
+        <div id="categories-modal-container">
             <h3 class="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2 mb-1">
                 <i data-lucide="tag" class="text-rose-600"></i> Expense Categories
             </h3>
@@ -1268,11 +1308,11 @@ function openCategoriesModal(categories) {
                 ${categories.length === 0 ? `
                     <p class="p-4 text-center text-slate-400 text-xs">No custom categories established yet.</p>
                 ` : categories.map(c => `
-                    <div class="flex items-center justify-between p-3 bg-white hover:bg-slate-50 transition-all text-xs">
-                        <input type="text" value="${escapeHTML(c.name)}" data-item-cat-id="${c.id}" class="font-bold text-slate-800 bg-transparent border-b border-transparent focus:border-rose-500 outline-none pb-0.5" />
+                    <div class="flex items-center justify-between p-3 bg-white hover:bg-slate-50 transition-all text-xs" data-cat-row="${c.id}">
+                        <input type="text" value="${escapeHTML(c.name)}" data-item-cat-id="${c.id}" class="cat-input-name font-bold text-slate-800 bg-transparent border-b border-transparent focus:border-rose-500 outline-none pb-0.5" />
                         <div class="flex items-center gap-1.5">
-                            <button data-save-exp-cat="${c.id}" class="text-emerald-600 hover:text-emerald-700 font-semibold text-[11px] h-6 px-1 cursor-pointer">Save</button>
-                            <button data-del-exp-cat="${c.id}" class="text-slate-400 hover:text-red-500 p-1 cursor-pointer">
+                            <button type="button" data-save-exp-cat="${c.id}" class="btn-save-cat hidden text-emerald-600 hover:text-emerald-700 font-semibold text-[11px] h-6 px-1 cursor-pointer">Save</button>
+                            <button type="button" data-del-exp-cat="${c.id}" class="text-slate-400 hover:text-red-500 p-1 cursor-pointer">
                                 <i data-lucide="trash" class="w-3.5 h-3.5"></i>
                             </button>
                         </div>
@@ -1287,45 +1327,76 @@ function openCategoriesModal(categories) {
     `;
 
     showModal(html, () => {
-        document.getElementById('btn-close-cat-modal').addEventListener('click', closeModal);
+        const container = document.getElementById('categories-modal-container');
+        if (!container) return;
 
-        document.getElementById('add-exp-cat-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const name = document.getElementById('new-cat-name').value;
+        // Initialize Lucide icons if available
+        if (window.lucide) window.lucide.createIcons();
 
-            showActionSpinner(true);
-            try {
-                const { error } = await supabase
-                    .from('expense_categories')
-                    .insert({ user_id: currentUser.id, name });
-                if (error) throw error;
-                
-                closeModal();
-                await reFetchAndRenderCurrentView();
-            } catch (err) {
-                alert("Creation failed: " + err.message);
-            } finally {
-                showActionSpinner(false);
-            }
-        });
+        // 1. Add Category Form Submission
+        const addForm = container.querySelector('#add-exp-cat-form');
+        if (addForm) {
+            addForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const input = document.getElementById('new-cat-name');
+                const name = input ? input.value.trim() : '';
+                if (!name) return;
 
-        // Save inline updates
-        categories.forEach(c => {
-            const saveBtn = document.querySelector(`[data-save-exp-cat="${c.id}"]`);
-            saveBtn.style.display = 'none';
-
-            const input = document.querySelector(`input[data-item-cat-id="${c.id}"]`);
-            input.addEventListener('input', () => {
-                saveBtn.style.display = 'inline-block';
-            });
-
-            saveBtn.addEventListener('click', async () => {
                 showActionSpinner(true);
                 try {
                     const { error } = await supabase
                         .from('expense_categories')
-                        .update({ name: input.value })
-                        .eq('id', c.id);
+                        .insert({ user_id: currentUser.id, name });
+                    if (error) throw error;
+                    
+                    closeModal();
+                    await reFetchAndRenderCurrentView();
+                } catch (err) {
+                    alert("Creation failed: " + err.message);
+                } finally {
+                    showActionSpinner(false);
+                }
+            });
+        }
+
+        // 2. Input event listener to show the "Save" button when category text changes
+        container.addEventListener('input', (e) => {
+            if (e.target.matches('.cat-input-name')) {
+                const catId = e.target.getAttribute('data-item-cat-id');
+                const saveBtn = container.querySelector(`[data-save-exp-cat="${catId}"]`);
+                if (saveBtn) {
+                    saveBtn.classList.remove('hidden');
+                    saveBtn.style.display = 'inline-block';
+                }
+            }
+        });
+
+        // 3. Delegated Click Listener for Close, Save, and Delete Actions
+        container.addEventListener('click', async (e) => {
+            // Close Button
+            if (e.target.closest('#btn-close-cat-modal')) {
+                closeModal();
+                return;
+            }
+
+            // Save Category Name
+            const saveBtn = e.target.closest('[data-save-exp-cat]');
+            if (saveBtn) {
+                const catId = saveBtn.getAttribute('data-save-exp-cat');
+                const input = container.querySelector(`input[data-item-cat-id="${catId}"]`);
+                const newName = input ? input.value.trim() : '';
+
+                if (!newName) {
+                    alert("Category name cannot be empty.");
+                    return;
+                }
+
+                showActionSpinner(true);
+                try {
+                    const { error } = await supabase
+                        .from('expense_categories')
+                        .update({ name: newName })
+                        .eq('id', catId);
                     if (error) throw error;
                     
                     closeModal();
@@ -1335,20 +1406,20 @@ function openCategoriesModal(categories) {
                 } finally {
                     showActionSpinner(false);
                 }
-            });
-        });
+                return;
+            }
 
-        // Cascading delete
-        document.querySelectorAll('[data-del-exp-cat]').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const id = btn.getAttribute('data-del-exp-cat');
+            // Delete Category
+            const delBtn = e.target.closest('[data-del-exp-cat]');
+            if (delBtn) {
+                const catId = delBtn.getAttribute('data-del-exp-cat');
                 if (confirm("Deleting this category cascades and deletes all historical expense records logged in it. Continue?")) {
                     showActionSpinner(true);
                     try {
                         const { error } = await supabase
                             .from('expense_categories')
                             .delete()
-                            .eq('id', id);
+                            .eq('id', catId);
                         if (error) throw error;
                         
                         closeModal();
@@ -1359,22 +1430,64 @@ function openCategoriesModal(categories) {
                         showActionSpinner(false);
                     }
                 }
-            });
+            }
         });
     });
 }
+
+let activeCategoryFilter = 'all';
+
+function setupCategoryFilterDelegation() {
+    // Single delegation listener attached to the document body
+    document.addEventListener('click', (e) => {
+        // Find if the clicked element or its parent is a category filter button
+        const btn = e.target.closest('.category-filter-btn');
+        if (!btn) return; // Ignore clicks outside the buttons
+
+        console.log("Filter button clicked:", btn.getAttribute('data-category-filter'));
+
+        const targetFilter = btn.getAttribute('data-category-filter');
+        activeCategoryFilter = targetFilter;
+
+        const filterButtons = document.querySelectorAll('.category-filter-btn');
+        const filterLabel = document.getElementById('active-filter-label');
+
+        // 1. Update Active UI Styling for Buttons
+        filterButtons.forEach(b => {
+            b.classList.remove('bg-emerald-600', 'border-emerald-600', 'text-white', 'shadow-sm', 'active');
+            b.classList.add('bg-slate-100/80', 'border-slate-200', 'text-slate-600');
+            
+            const badge = b.querySelector('span:last-child');
+            if (badge) {
+                badge.className = "px-1.5 py-0.2 text-[10px] bg-slate-200/80 text-slate-500 rounded-full font-mono";
+            }
+        });
+
+        // Set active styles on clicked button
+        btn.classList.remove('bg-slate-100/80', 'border-slate-200', 'text-slate-600');
+        btn.classList.add('bg-emerald-600', 'border-emerald-600', 'text-white', 'shadow-sm', 'active');
+        
+        const activeBadge = btn.querySelector('span:last-child');
+        if (activeBadge) {
+            activeBadge.className = "px-1.5 py-0.2 text-[10px] bg-white/20 text-white rounded-full font-mono";
+        }
+
+        if (filterLabel) {
+            filterLabel.textContent = `Showing: ${targetFilter === 'all' ? 'All' : targetFilter}`;
+        }
+
+        // 2. Trigger table re-filtering
+        applyCombinedFilters();
+    });
+}
+
+// Call this ONCE when script loads
+setupCategoryFilterDelegation();
 
 /**
  * Interactive Itemized Receipt Review Modal
  */
 function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier) {
-    const SUPPORTED_CATEGORIES = [
-        'Groceries', 'Dairy', 'Meat & Seafood', 'Bakery', 'Fruits & Vegetables',
-        'Beverages', 'Snacks', 'Household', 'Cleaning', 'Personal Care',
-        'Pharmacy/Health', 'Electronics', 'Clothing', 'Restaurant/Food',
-        'Transport', 'Other'
-    ];
-
     let items = [];
     if (Array.isArray(ocrData.items) && ocrData.items.length > 0) {
         items = ocrData.items.map(it => ({
@@ -1382,7 +1495,7 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
             quantity: typeof it.quantity === 'number' && it.quantity > 0 ? it.quantity : 1,
             unit_price: typeof it.unit_price === 'number' ? it.unit_price : null,
             price: typeof it.price === 'number' ? it.price : 0,
-            category: it.category || 'Groceries',
+            category: it.category || 'Miscellaneous',
             confidence: it.confidence || 0.95
         }));
     } else if (Array.isArray(ocrData.purchased_items) && ocrData.purchased_items.length > 0) {
@@ -1391,11 +1504,11 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
             quantity: typeof it[1] === 'number' && it[1] > 0 ? it[1] : 1,
             unit_price: null,
             price: typeof it[2] === 'number' ? it[2] : 0,
-            category: it[4] || 'Groceries',
+            category: it[4] || 'Miscellaneous',
             confidence: 0.95
         }));
     } else {
-        items = [{ item_name: 'General Receipt Purchase', quantity: 1, unit_price: ocrData.total_amount || 0, price: ocrData.total_amount || 0, category: 'Groceries', confidence: 1.0 }];
+        items = [{ item_name: 'General Receipt Purchase', quantity: 1, unit_price: ocrData.total_amount || 0, price: ocrData.total_amount || 0, category: 'Miscellaneous', confidence: 1.0 }];
     }
 
     const merchantName = (ocrData.merchant || ocrData.vendor || 'Store').trim();
@@ -1413,7 +1526,7 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
                     </div>
                     <div>
                         <h3 class="text-lg font-bold text-slate-900 tracking-tight">Review Itemized Receipt</h3>
-                        <p class="text-slate-500 text-xs">Confirm extracted items and assign individual categories before saving.</p>
+                        <p class="text-slate-500 text-xs">Confirm extracted items and raw LLM category tags before saving.</p>
                     </div>
                 </div>
                 <span class="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-semibold rounded-full border border-emerald-200 flex items-center gap-1">
@@ -1449,7 +1562,7 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
                                 <th class="p-2.5 pl-3">Item Description</th>
                                 <th class="p-2.5 w-16 text-center">Qty</th>
                                 <th class="p-2.5 w-24 text-right">Price (€)</th>
-                                <th class="p-2.5 w-44">Category</th>
+                                <th class="p-2.5 w-36">Category Tag</th>
                                 <th class="p-2.5 w-10 text-center"></th>
                             </tr>
                         </thead>
@@ -1491,11 +1604,8 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
 
         const renderRows = () => {
             body.innerHTML = currentItems.map((it, index) => {
-                const itemClass = classifyExpense({ merchant: merchantName, items: [it], note: it.item_name }, categories, classifier);
-                const catOpts = categories.map(c => {
-                    const sel = c.id === itemClass.categoryId ? 'selected' : '';
-                    return `<option value="${escapeHTML(c.name)}" ${sel}>${escapeHTML(c.name)}</option>`;
-                }).join('');
+                // Directly use the exact string from Gemini
+                const rawCategoryTag = it.category || 'Miscellaneous';
 
                 return `
                     <tr class="hover:bg-slate-50/60 transition-all" data-item-index="${index}">
@@ -1509,9 +1619,7 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
                             <input type="number" min="0" step="0.01" data-field="price" value="${parseFloat(it.price || 0).toFixed(2)}" class="w-full px-2 py-1 border border-slate-200 rounded-lg text-xs font-mono text-right outline-none focus:border-emerald-500" />
                         </td>
                         <td class="p-2">
-                            <select data-field="category" class="w-full px-2 py-1 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 outline-none focus:border-emerald-500 bg-white">
-                                ${catOpts}
-                            </select>
+                            <input type="text" data-field="category" value="${escapeHTML(rawCategoryTag)}" placeholder="Category Tag" class="w-full px-2 py-1 border border-slate-200 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50/50 outline-none focus:border-emerald-500" />
                         </td>
                         <td class="p-2 text-center">
                             <button type="button" data-delete-row="${index}" class="p-1 text-slate-400 hover:text-red-500 rounded hover:bg-slate-100 cursor-pointer transition-all">
@@ -1552,7 +1660,7 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
         };
 
         const attachRowListeners = () => {
-            body.querySelectorAll('input, select').forEach(input => {
+            body.querySelectorAll('input').forEach(input => {
                 input.addEventListener('input', updateCalculations);
                 input.addEventListener('change', updateCalculations);
             });
@@ -1579,131 +1687,121 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
         document.getElementById('btn-cancel-itemized').addEventListener('click', closeModal);
 
         document.getElementById('btn-save-itemized-expense').addEventListener('click', async () => {
-            const merchant = document.getElementById('itemized-merchant').value.trim() || 'Receipt Expense';
-            const date = document.getElementById('itemized-date').value;
-            if (!date) {
-                alert("Please enter a valid receipt date.");
-                return;
+    const merchant = document.getElementById('itemized-merchant').value.trim() || 'Receipt Expense';
+    const date = document.getElementById('itemized-date').value;
+    const currencyStr = (document.getElementById('itemized-currency')?.value || 'EUR').trim().toUpperCase();
+    
+    if (!date) {
+        alert("Please select or enter a valid receipt date.");
+        return;
+    }
+
+    // Collect extracted line items from the modal table
+    const lineItems = [];
+    let calculatedTotal = 0;
+
+    const rows = document.querySelectorAll('#itemized-rows-body tr');
+    rows.forEach(tr => {
+        const nameInput = tr.querySelector('[data-field="item_name"]');
+        const qtyInput = tr.querySelector('[data-field="quantity"]');
+        const priceInput = tr.querySelector('[data-field="price"]');
+        const catInput = tr.querySelector('[data-field="category"]');
+
+        const name = nameInput ? nameInput.value.trim() : '';
+        const qty = parseFloat(qtyInput ? qtyInput.value : 1) || 1;
+        const price = parseFloat(priceInput ? priceInput.value : 0) || 0;
+        const cat = catInput ? catInput.value.trim() : 'General';
+
+        if (name) {
+            lineItems.push({
+                item_name: name,
+                quantity: qty,
+                unit_price: qty > 0 ? (price / qty) : price,
+                price: price,
+                category: cat
+            });
+            calculatedTotal += price;
+        }
+    });
+
+    if (lineItems.length === 0) {
+        alert("Please add at least one line item to save.");
+        return;
+    }
+
+    const entryMonth = date.substring(0, 7);
+
+    // Construct the full raw receipt payload for raw_json
+    const receiptPayload = {
+        merchant: merchant,
+        date: date,
+        total_amount: calculatedTotal,
+        currency: currencyStr,
+        items: lineItems
+    };
+
+    showActionSpinner(true);
+    try {
+        // 1. Insert into consolidated expense_entries (NO category_id or note)
+        const { data: newEntry, error: entryErr } = await supabase
+            .from('expense_entries')
+            .insert({
+                user_id: currentUser.id,
+                amount: calculatedTotal,
+                date: date,
+                month: entryMonth,
+                merchant: merchant,        // Populates dedicated merchant column
+                currency: currencyStr,
+                entry_type: 'scanned',     // Identifies AI-scanned entry
+                raw_json: receiptPayload   // Stores entire JSON directly in expense_entries
+            })
+            .select()
+            .single();
+
+        if (entryErr) {
+            console.error("Failed to insert into expense_entries:", entryErr);
+            throw entryErr;
+        }
+
+        console.log("Successfully created parent expense_entry:", newEntry);
+
+        // 2. Insert line items into expense_receipt_items
+        if (newEntry && newEntry.id && lineItems.length > 0) {
+            const dbItems = lineItems.map(it => ({
+                user_id: currentUser.id,
+                expense_id: newEntry.id,   // Foreign key link to expense_entries
+                item_name: it.item_name,
+                quantity: it.quantity,
+                unit_price: it.unit_price,
+                price: it.price,
+                category: it.category,
+                confidence: 0.95
+            }));
+
+            console.log("Inserting line items into expense_receipt_items:", dbItems);
+
+            const { data: savedItems, error: itemsErr } = await supabase
+                .from('expense_receipt_items')
+                .insert(dbItems)
+                .select();
+
+            if (itemsErr) {
+                console.error("Error inserting into expense_receipt_items:", itemsErr);
+                alert("Saved parent expense, but failed to save line items: " + itemsErr.message);
+            } else {
+                console.log("Successfully saved line items:", savedItems);
             }
+        }
 
-            const rows = body.querySelectorAll('tr');
-            const lineItems = [];
-            let totalAmount = 0;
-
-            for (let i = 0; i < rows.length; i++) {
-                const tr = rows[i];
-                const nameVal = tr.querySelector('[data-field="item_name"]').value.trim();
-                const qtyVal = parseFloat(tr.querySelector('[data-field="quantity"]').value) || 1;
-                const priceVal = parseFloat(tr.querySelector('[data-field="price"]').value);
-                const catVal = tr.querySelector('[data-field="category"]').value;
-
-                if (!nameVal) {
-                    alert(`Please provide a description for line item #${i + 1}.`);
-                    return;
-                }
-                if (isNaN(priceVal) || priceVal < 0) {
-                    alert(`Please enter a valid price for "${nameVal}".`);
-                    return;
-                }
-
-                const lineTotal = qtyVal * priceVal;
-                totalAmount += lineTotal;
-
-                lineItems.push({
-                    item_name: nameVal,
-                    quantity: qtyVal,
-                    unit_price: priceVal,
-                    price: lineTotal,
-                    category: catVal
-                });
-            }
-
-            if (lineItems.length === 0) {
-                alert("Receipt must contain at least one line item.");
-                return;
-            }
-
-            const primaryClassification = classifyExpense({
-                merchant: merchant,
-                items: lineItems,
-                rawText: merchant
-            }, categories, classifier);
-
-            const primaryCategoryId = primaryClassification.categoryId;
-            console.log(`[Receipt Classification Debug] Vendor: "${merchant}", Assigned Primary Category: "${primaryClassification.categoryName}" (ID: ${primaryCategoryId}, Conf: ${primaryClassification.confidence}, Reason: "${primaryClassification.reason}")`);
-
-            const entryMonth = date.substring(0, 7);
-
-            const noteWithItems = lineItems.length > 0
-                ? `${merchant} [ITEMIZED:${JSON.stringify(lineItems)}]`
-                : merchant;
-
-            showActionSpinner(true);
-            try {
-                console.log("ITEMS BEFORE SAVE:", lineItems);
-
-                // 1. Insert primary expense entry into expense_entries
-                const { data: newEntry, error: entryErr } = await supabase
-                    .from('expense_entries')
-                    .insert({
-                        user_id: currentUser.id,
-                        category_id: primaryCategoryId,
-                        amount: totalAmount,
-                        date: date,
-                        note: noteWithItems,
-                        month: entryMonth
-                    })
-                    .select()
-                    .single();
-
-                if (entryErr) {
-                    console.error("FAILED TO SAVE PARENT EXPENSE:", entryErr);
-                    throw entryErr;
-                }
-
-                console.log("SAVED PARENT EXPENSE ENTRY:", newEntry);
-
-                // 2. Try inserting line items into expense_receipt_items if table exists in Supabase
-                if (newEntry && newEntry.id && lineItems.length > 0) {
-                    const dbItems = lineItems.map(it => ({
-                        user_id: currentUser.id,
-                        expense_id: newEntry.id,
-                        item_name: it.item_name,
-                        quantity: it.quantity,
-                        unit_price: (typeof it.unit_price === 'number' && !isNaN(it.unit_price)) ? it.unit_price : (it.price / (it.quantity || 1)),
-                        price: it.price,
-                        category: it.category,
-                        confidence: 0.95
-                    }));
-
-                    console.log("INSERTING DB ITEMS INTO expense_receipt_items:", dbItems);
-
-                    try {
-                        const { data: savedItems, error: itemsErr } = await supabase
-                            .from('expense_receipt_items')
-                            .insert(dbItems)
-                            .select();
-
-                        if (itemsErr) {
-                            console.warn("Notice: expense_receipt_items table not ready in Supabase schema cache yet. Line items saved safely in entry metadata:", itemsErr.message);
-                        } else {
-                            console.log("SAVED RECEIPT ITEMS IN SUPABASE TABLE:", savedItems);
-                        }
-                    } catch (tblErr) {
-                        console.warn("Notice: expense_receipt_items table query notice:", tblErr.message);
-                    }
-                }
-
-                closeModal();
-                await reFetchAndRenderCurrentView();
-            } catch (err) {
-                console.error("Error in saveItemizedReceipt:", err);
-                alert("Failed to save itemized receipt: " + err.message);
-            } finally {
-                showActionSpinner(false);
-            }
-        });
-
+        closeModal();
+        await reFetchAndRenderCurrentView();
+    } catch (err) {
+        console.error("Error in save receipt process:", err);
+        alert("Failed to save receipt: " + err.message);
+    } finally {
+        showActionSpinner(false);
+    }
+});
         renderRows();
     });
 }
