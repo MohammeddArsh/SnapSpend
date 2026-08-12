@@ -203,6 +203,9 @@ export async function navigateTo(viewName) {
                 case 'expenses':
                     module = await import('./expenses.js');
                     break;
+                case 'reports':
+                    module = await import('./reports.js');
+                    break;
                 case 'assistant':
                     module = await import('./assistant.js');
                     break;
