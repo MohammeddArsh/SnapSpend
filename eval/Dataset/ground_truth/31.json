@@ -1,0 +1,42 @@
+{
+  "vendor": "Aldi Süd",
+  "date": "05.06.2026",
+  "total_amount": 7.27,
+  "purchased_items": [
+    [
+      "Bananen FairTrade",
+      1,
+      1.29,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Backpapierzusch.",
+      1,
+      0.95,
+      "EUR",
+      "Households"
+    ],
+    [
+      "Linseneintopf",
+      1,
+      1.89,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Spülmittel Lem. 1L",
+      1,
+      0.85,
+      "EUR",
+      "Households"
+    ],
+    [
+      "Thunfisch Dressing",
+      1,
+      2.29,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "vendor": "dm-drogerie markt",
+  "date": "26.05.2026",
+  "total_amount": 7.4,
+  "purchased_items": [
+    [
+      "Balea erfrischendes Waschgel",
+      1,
+      0.85,
+      "EUR",
+      "Pharmacy"
+    ],
+    [
+      "Balea Creme Seife Milch+Honig",
+      1,
+      0.65,
+      "EUR",
+      "Pharmacy"
+    ],
+    [
+      "Balea Prof. SH Kopfhaut Sensit",
+      1,
+      1.25,
+      "EUR",
+      "Pharmacy"
+    ],
+    [
+      "Balea Prof. SP Ultimate Volume",
+      1,
+      1.25,
+      "EUR",
+      "Pharmacy"
+    ],
+    [
+      "Balea Sea Salt Texture Spray",
+      1,
+      1.45,
+      "EUR",
+      "Pharmacy"
+    ],
+    [
+      "Balea Men Modell. Matt Paste",
+      1,
+      1.95,
+      "EUR",
+      "Pharmacy"
+    ]
+  ]
+}

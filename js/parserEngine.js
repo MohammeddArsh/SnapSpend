@@ -8,6 +8,9 @@
 // The returned shape is consumed by the Expenses module and the evaluation harness.
 
 import { mapToCanonical } from './categories.js';
+import { callChatCompletion } from '../eval/lib/openrouter.mjs';
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Structured output schema (Gemini `response_schema` format)
 export const RECEIPT_SCHEMA = {
@@ -61,13 +64,15 @@ export const RECEIPT_SCHEMA_PROMPT = `Return ONLY a JSON object matching this sc
 export const DEFAULT_SYSTEM_PROMPT = "Extract structured receipt data including vendor, date, total amount, and itemized purchase details from this receipt image. Assign a clear category tag to each item.";
 
 // Curated vision-capable models for the evaluation module (OpenRouter slugs).
+// Verified against the live catalog (Aug 2026) — check with:
+//   node eval/run-eval.mjs --list-models
 // Any OpenRouter model id can also be typed in manually.
 export const DEFAULT_OPENROUTER_MODELS = [
-    "google/gemini-3.1-flash",
     "google/gemini-3.1-flash-lite",
+    "google/gemini-3.6-flash",
     "openai/gpt-4o-mini",
-    "anthropic/claude-3-5-haiku-20241022",
-    "meta-llama/llama-3.2-11b-vision-instruct",
+    "anthropic/claude-haiku-4.5",
+    "google/gemma-4-31b-it:free",
 ];
 
 export const DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite";
@@ -113,7 +118,7 @@ export async function parseReceiptDirectly(file) {
 }
 
 async function parseViaGemini(base64Data, mimeType, model, systemPrompt, temperature) {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const apiKey = import.meta.env?.VITE_GEMINI_API_KEY;
     if (!apiKey) throw new Error("VITE_GEMINI_API_KEY is missing in your .env file!");
 
     const modelId = model || DEFAULT_GEMINI_MODEL;
@@ -135,37 +140,65 @@ async function parseViaGemini(base64Data, mimeType, model, systemPrompt, tempera
         }
     };
 
-    const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-    });
+    const GEMINI_RETRYABLE = new Set([429, 500, 502, 503, 504]);
+    const GEMINI_MAX_RETRIES = 4;
+    let attempt = 0;
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Gemini API Error (HTTP ${response.status}): ${errorText}`);
+    while (true) {
+        const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!rawText) throw new Error("Gemini returned an empty response.");
+
+            return extractJSON(rawText);
+        }
+
+        const errorText = await response.text().catch(() => "");
+        const status = response.status;
+
+        // A hard daily quota will not clear within a retry window — fail fast.
+        if (status === 429 && /perday|per[- ]?day|daily/i.test(errorText)) {
+            const err = new Error(`Gemini daily quota exhausted (HTTP 429): ${errorText.slice(0, 300)}`);
+            err.status = 429;
+            err.dailyQuota = true;
+            throw err;
+        }
+
+        if (GEMINI_RETRYABLE.has(status) && attempt < GEMINI_MAX_RETRIES) {
+            // Prefer a "retry in Xs" hint from the error body when present.
+            const hint = errorText.match(/retry (?:in|after) ([\d.]+) ?s/i);
+            attempt++;
+            await sleep(Math.min(60, hint ? parseFloat(hint[1]) : 2 ** attempt) * 1000);
+            continue;
+        }
+
+        const err = new Error(`Gemini API Error (HTTP ${status}): ${errorText.slice(0, 300)}`);
+        err.status = status;
+        throw err;
     }
-
-    const result = await response.json();
-    const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!rawText) throw new Error("Gemini returned an empty response.");
-
-    return extractJSON(rawText);
 }
 
 async function parseViaOpenRouter(base64Data, mimeType, model, systemPrompt, temperature) {
-    const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+    const apiKey = import.meta.env?.VITE_OPENROUTER_API_KEY;
     if (!apiKey) throw new Error("VITE_OPENROUTER_API_KEY is missing in your .env file!");
     if (!model) throw new Error("OpenRouter provider requires an explicit model id.");
 
-    const endpoint = "https://openrouter.ai/api/v1/chat/completions";
     const dataUrl = `data:${mimeType};base64,${base64Data}`;
 
-    const payload = {
+    // Shared hardened client (eval/lib/openrouter.mjs): retries transient
+    // 429/5xx with backoff + Retry-After, fails fast on the daily free cap,
+    // and downgrades JSON mode if the model rejects response_format.
+    const { content } = await callChatCompletion({
+        apiKey,
         model,
         temperature,
-        max_tokens: 2048,
-        response_format: { type: "json_object" },
+        jsonMode: true,
         messages: [
             { role: "system", content: `${systemPrompt}\n\n${RECEIPT_SCHEMA_PROMPT}` },
             {
@@ -176,25 +209,7 @@ async function parseViaOpenRouter(base64Data, mimeType, model, systemPrompt, tem
                 ]
             }
         ]
-    };
-
-    const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${apiKey}`
-        },
-        body: JSON.stringify(payload)
     });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`OpenRouter API Error (HTTP ${response.status}): ${errorText}`);
-    }
-
-    const result = await response.json();
-    const content = result?.choices?.[0]?.message?.content;
-    if (!content) throw new Error("OpenRouter returned an empty response.");
 
     return extractJSON(content);
 }

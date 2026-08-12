@@ -1,0 +1,21 @@
+{
+  "vendor": "REWE Karaaslan GmbH&Co. KG",
+  "date": "19.05.2026",
+  "total_amount": 8.35,
+  "purchased_items": [
+    [
+      "BANANE BANDEROLE",
+      1,
+      1.36,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "POWER CAPS COLOR",
+      1,
+      6.99,
+      "EUR",
+      "Households"
+    ]
+  ]
+}

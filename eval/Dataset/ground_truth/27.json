@@ -1,0 +1,21 @@
+{
+  "vendor": "Family-Market Eppelheim",
+  "date": "03.06.2026",
+  "total_amount": 8.48,
+  "purchased_items": [
+    [
+      "4820107357090",
+      1,
+      5.99,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Buldak Carbonara 1stck 130g",
+      1,
+      2.49,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

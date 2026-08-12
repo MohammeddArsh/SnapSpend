@@ -1,0 +1,14 @@
+{
+  "vendor": "Dürninger GmbH",
+  "date": "07.05.2026",
+  "total_amount": 10.95,
+  "purchased_items": [
+    [
+      "Feuerzeuge",
+      1,
+      10.95,
+      "EUR",
+      "Households"
+    ]
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "vendor": "Aldi Süd",
+  "date": "01.08.2026",
+  "total_amount": 6.43,
+  "purchased_items": [
+    [
+      "Sandwiches 185g",
+      1,
+      1.99,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Streuselkuchen",
+      1,
+      1.99,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Edamer Tilsiter",
+      1,
+      2.45,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "vendor": "ALDI SÜD",
+  "date": "13.05.2026",
+  "total_amount": 6.59,
+  "purchased_items": [
+    [
+      "Fresh-Cut-Salat 2",
+      1,
+      0.99,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Erdn. 200g Beutel",
+      1,
+      0.99,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Kochbeutel Reis",
+      1,
+      0.79,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Haferflocken zart",
+      1,
+      0.69,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Wraps Vollkorn",
+      1,
+      1.59,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Knobl./Pfeffer we",
+      1,
+      0.85,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Rote Kidney Bohnen",
+      1,
+      0.69,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "vendor": "Family-Market Eppelheim",
+  "date": "01.08.2026",
+  "total_amount": 7.56,
+  "purchased_items": [
+    [
+      "Saadi Mojito 280ml",
+      1,
+      1.49,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Pfand",
+      1,
+      0.08,
+      "EUR",
+      "Miscellaneous"
+    ],
+    [
+      "4820107357090",
+      1,
+      5.99,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

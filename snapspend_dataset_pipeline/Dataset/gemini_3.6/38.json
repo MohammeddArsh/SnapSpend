@@ -1,0 +1,91 @@
+{
+  "vendor": "Aldi Süd",
+  "date": "09.06.2026",
+  "total_amount": 31.86,
+  "purchased_items": [
+    [
+      "Speisezwiebeln rot",
+      1,
+      1.39,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Quark Mager, 250g",
+      8,
+      4.72,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Fettarme Milch 1,5",
+      1,
+      0.85,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Egetürk Egetat",
+      1,
+      4.29,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Bio Reis-/Maiswaf.",
+      1,
+      0.65,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Haferflocken zart",
+      1,
+      0.69,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Ananas Stuecke",
+      1,
+      1.79,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Rote Kidney Bohnen",
+      2,
+      1.38,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Datteln, entsteint",
+      1,
+      1.29,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Wraps Vollkorn",
+      1,
+      1.59,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Thunf. Sonnenbl.öl",
+      7,
+      9.03,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Eier Bodenh. 18er",
+      1,
+      4.19,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "vendor": "REWE",
+  "date": "21.07.2026",
+  "total_amount": 8.92,
+  "purchased_items": [
+    [
+      "EDAMER SCHEIBEN",
+      1,
+      2.45,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "STREICHGUT GESAL",
+      1,
+      1.04,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "HIGH PROT.DRINK",
+      1,
+      1.89,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "PFAND",
+      1,
+      0.25,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "JOGHURT DRESSING",
+      1,
+      1.49,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "CHRISPY CHICKEN",
+      1,
+      1.79,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

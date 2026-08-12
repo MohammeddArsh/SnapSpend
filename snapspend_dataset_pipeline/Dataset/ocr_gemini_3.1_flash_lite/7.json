@@ -1,0 +1,49 @@
+{
+  "vendor": "PENNY-MARKT GMBH",
+  "date": "23.05.2026",
+  "total_amount": 11.34,
+  "purchased_items": [
+    [
+      "SK TOAST",
+      1,
+      1.49,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Pizza Margherita",
+      2,
+      1.98,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Tortillas Weizen",
+      1,
+      1.59,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Salatherzen Roma",
+      1,
+      0.6,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "EIER BODENHALT.",
+      1,
+      4.19,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "W&C French Dr",
+      1,
+      1.49,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

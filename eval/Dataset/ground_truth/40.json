@@ -1,0 +1,28 @@
+{
+  "vendor": "T.K. Maxx",
+  "date": "03.08.2026",
+  "total_amount": 18.28,
+  "purchased_items": [
+    [
+      "Mittlere Tragetüte",
+      1,
+      0.3,
+      "EUR",
+      "Households"
+    ],
+    [
+      "Herren Casual",
+      1,
+      7.99,
+      "EUR",
+      "Households"
+    ],
+    [
+      "Modbox Herren",
+      1,
+      9.99,
+      "EUR",
+      "Households"
+    ]
+  ]
+}

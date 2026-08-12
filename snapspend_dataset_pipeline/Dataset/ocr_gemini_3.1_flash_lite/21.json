@@ -1,0 +1,35 @@
+{
+  "vendor": "PENNY-MARKT GMBH",
+  "date": "06.08.2026",
+  "total_amount": 5.28,
+  "purchased_items": [
+    [
+      "Latte Ma. High P",
+      1,
+      1.15,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "PFAND",
+      1,
+      0.25,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "SANDWICH THUNFI.",
+      1,
+      1.99,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "CORNETTO GO",
+      1,
+      1.89,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

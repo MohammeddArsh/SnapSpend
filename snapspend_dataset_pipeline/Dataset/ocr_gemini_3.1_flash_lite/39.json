@@ -1,0 +1,77 @@
+{
+  "vendor": "PENNY MARKT GMBH",
+  "date": "30.05.2026",
+  "total_amount": 11.72,
+  "purchased_items": [
+    [
+      "Tiramisu",
+      1,
+      2.49,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Gef.Friecheiwaff",
+      1,
+      1.69,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "KALINKA KEFIR",
+      1,
+      1.29,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "PFAND",
+      1,
+      0.25,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "KAESEBAELLCHEN",
+      1,
+      1.19,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "VEG WUERMER SAUE",
+      1,
+      0.99,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "HARIBO RAINBOW F",
+      1,
+      1.19,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Pio Creme Cookie",
+      1,
+      0.99,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "HOHE C L.ORANGE",
+      1,
+      1.09,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "PFAND",
+      1,
+      0.25,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

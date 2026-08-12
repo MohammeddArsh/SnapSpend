@@ -1,0 +1,28 @@
+{
+  "vendor": "REWE",
+  "date": "29.07.2026",
+  "total_amount": 11.54,
+  "purchased_items": [
+    [
+      "HIGH PROT.DRINK",
+      1,
+      1.89,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "PFAND 0,25 EURO",
+      1,
+      0.25,
+      "EUR",
+      "Miscellaneous"
+    ],
+    [
+      "A. SPIRIT BLUE L",
+      1,
+      9.4,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

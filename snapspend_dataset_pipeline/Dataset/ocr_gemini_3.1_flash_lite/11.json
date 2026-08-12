@@ -1,0 +1,35 @@
+{
+  "vendor": "Netto Marken Discount",
+  "date": "11.05.2026",
+  "total_amount": 5.72,
+  "purchased_items": [
+    [
+      "Gran.Pudding m.Sahne so t.200g",
+      1,
+      0.39,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "GL Fri.milch 1.5€ IL HF",
+      1,
+      0.85,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Landliebe Auflaufkaese 50g",
+      1,
+      1.69,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Gemuesezwiebeln 1kg",
+      1,
+      2.79,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

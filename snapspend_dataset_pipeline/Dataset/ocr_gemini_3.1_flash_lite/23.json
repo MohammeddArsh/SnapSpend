@@ -1,0 +1,49 @@
+{
+  "vendor": "dm",
+  "date": "26.05.2026",
+  "total_amount": 7.4,
+  "purchased_items": [
+    [
+      "Balea erfrischendes Waschgel",
+      1,
+      0.85,
+      "EUR",
+      "Households"
+    ],
+    [
+      "Balea Creme Seife Milch+Honig",
+      1,
+      0.65,
+      "EUR",
+      "Households"
+    ],
+    [
+      "Balea Prof. SH Kopfhaut Sensit",
+      1,
+      1.25,
+      "EUR",
+      "Households"
+    ],
+    [
+      "Balea Prof. SP Ultimate Volume",
+      1,
+      1.25,
+      "EUR",
+      "Households"
+    ],
+    [
+      "Balea Sea Sall Texture Spray",
+      1,
+      1.45,
+      "EUR",
+      "Households"
+    ],
+    [
+      "Balea Men Modell. Matt Paste",
+      1,
+      1.95,
+      "EUR",
+      "Households"
+    ]
+  ]
+}

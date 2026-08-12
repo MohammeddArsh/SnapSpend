@@ -1,0 +1,21 @@
+{
+  "vendor": "Serpa Markt",
+  "date": "13.05.2026",
+  "total_amount": 16.26,
+  "purchased_items": [
+    [
+      "FLEISCH",
+      1,
+      14.27,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Ozyörem Hanimell Dilim salam",
+      1,
+      1.99,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

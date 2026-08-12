@@ -1,0 +1,42 @@
+{
+  "vendor": "Aldi Süd",
+  "date": "04.08.2026",
+  "total_amount": 7.04,
+  "purchased_items": [
+    [
+      "Spulmittel Lem. 1L",
+      1,
+      0.85,
+      "EUR",
+      "Households"
+    ],
+    [
+      "Streuselkuchen",
+      1,
+      1.99,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Wrap 190g",
+      1,
+      1.99,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Bananen FairTrade",
+      1,
+      1.96,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Tragetasche Altp",
+      1,
+      0.25,
+      "EUR",
+      "Miscellaneous"
+    ]
+  ]
+}

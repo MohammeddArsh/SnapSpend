@@ -1,0 +1,84 @@
+{
+  "vendor": "ALDI SÜD",
+  "date": "22.06.2026",
+  "total_amount": 24.42,
+  "purchased_items": [
+    [
+      "Eier Bodenh. 18er",
+      1,
+      4.19,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Fettarme Milch 1,5",
+      1,
+      0.85,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Bio Gemüsesortim.",
+      1,
+      2.69,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Salatdressing",
+      1,
+      1.49,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Bananen RFA",
+      1,
+      1.7,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "MSC Thunf. natur",
+      1,
+      1.29,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "MSC Thunf. natur",
+      1,
+      1.29,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Thunf. Sonnenbl.öl",
+      5,
+      6.45,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Datteln, entsteint",
+      1,
+      1.29,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Spaghetti 500g",
+      1,
+      0.69,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Basmati Reis",
+      1,
+      2.49,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

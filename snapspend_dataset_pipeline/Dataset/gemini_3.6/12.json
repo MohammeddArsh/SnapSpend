@@ -1,0 +1,35 @@
+{
+  "vendor": "PENNY-MARKT GMBH",
+  "date": "03.08.2026",
+  "total_amount": 5.38,
+  "purchased_items": [
+    [
+      "Zitronenkuchen",
+      1,
+      1.99,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Latte Ma. High P",
+      1,
+      1.15,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "PFAND 0,25 EURO",
+      1,
+      0.25,
+      "EUR",
+      "Miscellaneous"
+    ],
+    [
+      "WRAP THUNFISCH",
+      1,
+      1.99,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

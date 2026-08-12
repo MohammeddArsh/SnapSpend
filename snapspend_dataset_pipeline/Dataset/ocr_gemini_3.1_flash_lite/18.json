@@ -1,0 +1,28 @@
+{
+  "vendor": "Action Deutschland GmbH",
+  "date": "01.06.2026",
+  "total_amount": 22.33,
+  "purchased_items": [
+    [
+      "dürüm-wraps 6stck 600g",
+      1,
+      1.39,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "philips stehlampe 140cm rgbic+fernbed",
+      1,
+      8.95,
+      "EUR",
+      "Households"
+    ],
+    [
+      "milka sensation oreo creme 156g",
+      1,
+      1.99,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

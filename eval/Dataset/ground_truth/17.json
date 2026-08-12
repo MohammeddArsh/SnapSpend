@@ -1,0 +1,42 @@
+{
+  "vendor": "ACTION",
+  "date": "09.05.2026",
+  "total_amount": 7.88,
+  "purchased_items": [
+    [
+      "jama fruits datteln entkernt 200g",
+      1,
+      1.13,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "kitkat 8er-pack 166g milch",
+      1,
+      1.98,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "gabeln 4stck edelstahl",
+      1,
+      1.59,
+      "EUR",
+      "Households"
+    ],
+    [
+      "lotus biscoff mit schokolade 6x3 132g",
+      1,
+      1.89,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "scherenset 2st",
+      1,
+      1.29,
+      "EUR",
+      "Households"
+    ]
+  ]
+}

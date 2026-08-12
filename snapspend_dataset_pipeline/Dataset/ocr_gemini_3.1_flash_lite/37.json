@@ -1,0 +1,28 @@
+{
+  "vendor": "dm-drogerie markt",
+  "date": "19.06.2026",
+  "total_amount": 21.85,
+  "purchased_items": [
+    [
+      "Neutrog.AntiPickelFeuchtigkeit",
+      1,
+      7.95,
+      "EUR",
+      "Pharmacy"
+    ],
+    [
+      "Balea milde Seife antibak",
+      1,
+      0.95,
+      "EUR",
+      "Households"
+    ],
+    [
+      "Neutrog.SheerO1lCont.Sonnenf1.",
+      1,
+      12.95,
+      "EUR",
+      "Pharmacy"
+    ]
+  ]
+}

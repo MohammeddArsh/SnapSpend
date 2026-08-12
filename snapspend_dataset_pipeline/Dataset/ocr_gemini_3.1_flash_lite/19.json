@@ -1,0 +1,28 @@
+{
+  "vendor": "REWE Eliza Schindler oHG",
+  "date": "30.05.2026",
+  "total_amount": 6.87,
+  "purchased_items": [
+    [
+      "BUTTERTOAST",
+      1,
+      0.89,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "FILEGRO CRUNCH N",
+      1,
+      4.49,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "WELLENSCHN,POMME",
+      1,
+      1.49,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

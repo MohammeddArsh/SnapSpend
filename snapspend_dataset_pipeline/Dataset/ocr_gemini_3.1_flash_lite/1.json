@@ -1,0 +1,28 @@
+{
+  "vendor": "Aldi Sud",
+  "date": "01.08.2026",
+  "total_amount": 6.43,
+  "purchased_items": [
+    [
+      "Streuselkuchen",
+      1,
+      1.99,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Edamer Tilsiter",
+      1,
+      2.45,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Unknown Item",
+      1,
+      1.99,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

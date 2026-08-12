@@ -1,0 +1,42 @@
+{
+  "vendor": "Aldi Süd",
+  "date": "19.06.2026",
+  "total_amount": 7.36,
+  "purchased_items": [
+    [
+      "Bananen FairTrade",
+      1,
+      2.44,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Pizza Margherita",
+      1,
+      0.99,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Wraps Vol1korn",
+      1,
+      1.59,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Streichf ges 250g",
+      1,
+      1.05,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Datteln, entsteint",
+      1,
+      1.29,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "vendor": "Lidl",
+  "date": "21.05.2026",
+  "total_amount": 10.17,
+  "purchased_items": [
+    [
+      "Eier Bodenhalt. 18er",
+      1,
+      4.19,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Zitronensaft",
+      1,
+      0.79,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Papiertragetasc",
+      1,
+      0.2,
+      "EUR",
+      "Households"
+    ],
+    [
+      "Trinkflasche-0525396",
+      1,
+      4.99,
+      "EUR",
+      "Households"
+    ]
+  ]
+}

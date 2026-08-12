@@ -1,0 +1,21 @@
+{
+  "vendor": "TEDi GmbH & Co. KG",
+  "date": "30.05.2026",
+  "total_amount": 3.0,
+  "purchased_items": [
+    [
+      "Spielwaren",
+      1,
+      1.5,
+      "EUR",
+      "Miscellaneous"
+    ],
+    [
+      "Spfelwaren",
+      1,
+      1.5,
+      "EUR",
+      "Miscellaneous"
+    ]
+  ]
+}

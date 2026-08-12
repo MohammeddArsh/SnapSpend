@@ -1,0 +1,35 @@
+{
+  "vendor": "Aldi Sud",
+  "date": "03.08.2026",
+  "total_amount": 6.22,
+  "purchased_items": [
+    [
+      "Schwammtuch 5er",
+      1,
+      0.85,
+      "EUR",
+      "Households"
+    ],
+    [
+      "A11zweckr. 1,5L",
+      1,
+      1.39,
+      "EUR",
+      "Households"
+    ],
+    [
+      "Rispentomaten 650g",
+      1,
+      1.69,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "F&G Eier BW",
+      1,
+      2.29,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}
