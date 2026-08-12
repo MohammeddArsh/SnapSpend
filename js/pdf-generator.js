@@ -310,10 +310,16 @@ function drawSpending(doc, categories, y) {
         return;
     }
 
+    // Donut in the left half, category legend as a right-aligned column in the
+    // right half. Both share a vertical centre so they read as one block.
+    const panelX = PAGE_WIDTH / 2;
     const cx = MARGIN + 44;
     const cy = y + 30;
+    const shown = Math.min(categories.length, LEGEND_CAP);
+    const topY = cy - ((shown - 1) * LEGEND_ROW_H) / 2;
+
     drawDonut(doc, categories, cx, cy, 24);
-    drawLegend(doc, categories, PAGE_WIDTH / 2, y + 4);
+    drawLegend(doc, categories, panelX, topY);
 }
 
 /**
@@ -345,13 +351,14 @@ function drawDonut(doc, categories, cx, cy, radius) {
 }
 
 /**
- * Single-column legend in the right half of the page: one compact category per
- * line, % and amount right-aligned to the page's right margin.
+ * Category legend drawn as a fixed column filling the page's right half: colour
+ * dot + name left-aligned to the panel edge, then % and amount right-aligned to
+ * fixed columns so every row shares the same tidy spacing.
  */
 function drawLegend(doc, categories, x, topY) {
     const shown = categories.slice(0, LEGEND_CAP);
     const amountRight = RIGHT;
-    const pctRight = amountRight - 36;
+    const pctRight = amountRight - 34;
 
     shown.forEach((cat, i) => {
         const ly = topY + i * LEGEND_ROW_H;
@@ -362,7 +369,7 @@ function drawLegend(doc, categories, x, topY) {
         doc.setFont(FONT, 'bold');
         doc.setFontSize(7.5);
         doc.setTextColor(INK);
-        doc.text(truncate(cat.name, 11), x + 4, ly);
+        doc.text(truncateToWidth(doc, cat.name, pctRight - (x + 4) - 4), x + 4, ly);
 
         doc.setFont(FONT, 'normal');
         doc.setFontSize(6.5);
@@ -396,7 +403,10 @@ function formatShortDate(iso) {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function truncate(str, max) {
-    const s = String(str || '');
-    return s.length <= max ? s : `${s.slice(0, max - 3)}...`;
+function truncateToWidth(doc, text, maxW) {
+    const s = String(text || '');
+    if (doc.getTextWidth(s) <= maxW) return s;
+    let i = s.length;
+    while (i > 0 && doc.getTextWidth(`${s.slice(0, i - 1)}…`) > maxW) i -= 1;
+    return `${s.slice(0, i - 1)}…`;
 }
