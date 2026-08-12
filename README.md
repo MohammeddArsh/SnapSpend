@@ -8,11 +8,12 @@ It combines a clean expense dashboard with an **AI receipt parser** (image → s
 
 ## Features
 
-- **Login / Sign-up** — username + email + password via Supabase Auth; profiles, income sources and categories are seeded automatically.
+- **Login / Sign-up** — username + email + password via Supabase Auth, guarded by Cloudflare Turnstile bot detection; profiles, income sources and the five canonical categories are seeded automatically.
 - **Dashboard** — monthly income, expenses and net savings, plus a **spending-by-category pie chart** across exactly five categories: **Groceries, Pharmacy, Travel, Households, Miscellaneous**.
 - **Income** — log salary/bonus credits per month, with a one-click "copy last month's salary" draft.
 - **Expenses** — manual entry (with on-device Naive Bayes category suggestions), CSV import, and **AI receipt scanning** (upload a photo → structured JSON review → save).
-- **AI Assistant** — ask questions in plain English; a Supabase Edge Function translates them to safe, user-scoped SQL and returns a grounded answer with the query used.
+- **Reports** — a month snapshot with income & expense ledgers, net-savings and savings-rate cards, month-over-month deltas, a spending donut, and one-click **PDF export**.
+- **AI Assistant** — ask questions in plain English and get grounded, plain-text answers sourced only from your data (via a Supabase Edge Function or a client-side Gemini fallback), always scoped to the signed-in user.
 - **Evaluation module** — standalone page that benchmarks any number of models × system prompts on receipt images against ground-truth JSON and scores accuracy.
 
 ---
@@ -26,10 +27,11 @@ It combines a clean expense dashboard with an **AI receipt parser** (image → s
 | **Fonts**          | Inter, JetBrains Mono                    |
 | **Build Tool**     | Vite 6                                   |
 | **Database**       | PostgreSQL via Supabase                  |
-| **Authentication** | Supabase Auth                            |
+| **Authentication** | Supabase Auth + Cloudflare Turnstile     |
 | **Security**       | PostgreSQL Row Level Security (RLS)      |
 | **Receipt Parser** | Gemini API / OpenRouter (model-agnostic) |
-| **AI Assistant**   | Supabase Edge Function (text-to-SQL)     |
+| **Reports / PDF**  | jsPDF + jspdf-autotable                  |
+| **AI Assistant**   | Supabase Edge Function (text-to-SQL) + client-side Gemini fallback |
 | **Testing**        | Node.js Native Test Runner (`node:test`) |
 
 ---
@@ -44,13 +46,18 @@ SnapSpend/
 │
 ├── js/
 │   ├── app.js                      # Application router & authentication UI
-│   ├── assistant.js                # AI assistant chat view (text-to-SQL)
+│   ├── assistant.js                # AI assistant chat view + answer rendering
+│   ├── assistantClient.js          # Client-side assistant (Gemini) for edge-free deployments
 │   ├── categories.js               # Canonical categories + granular tag mapping
 │   ├── classifier.js               # On-device Naive Bayes category classifier
 │   ├── dashboard.js                # Dashboard & spending-by-category pie chart
+│   ├── datepicker.js               # Custom month/date picker
+│   ├── dropdown.js                 # Reusable dropdown component
 │   ├── expenses.js                 # Expense management & receipt scanning
 │   ├── income.js                   # Income management
 │   ├── parserEngine.js             # Model-agnostic receipt → JSON parser
+│   ├── pdf-generator.js            # Monthly report → PDF export
+│   ├── reports.js                  # Monthly reports view & shared aggregation
 │   ├── supabase.js                 # Supabase client & session management
 │   ├── utils.js                    # Utilities, formatting & security helpers
 │   └── eval/
@@ -67,9 +74,14 @@ SnapSpend/
 ├── supabase/
 │   ├── config.toml                 # Edge function config
 │   ├── functions/assistant/
-│   │   └── index.ts                # AI assistant edge function (Deno)
+│   │   ├── index.ts                # Assistant edge function entry (Deno)
+│   │   ├── llm.ts                  # Provider abstraction (Gemini / OpenRouter)
+│   │   ├── prompts.ts              # System prompt, schema DDL & tool definitions
+│   │   └── sql.ts                  # SQL validation & user scoping
 │   └── migrations/
-│       └── 0001_canonical_categories.sql   # Upgrade script for existing databases
+│       ├── 0001_canonical_categories.sql   # Upgrade scripts for existing databases
+│       ├── 0002_add_households_category.sql
+│       └── 0003_rename_outings_to_travel.sql
 │
 ├── tests/
 │   ├── classifier.test.js          # Naive Bayes classifier tests
@@ -98,8 +110,9 @@ SnapSpend/
 1. Create a new project from your Supabase dashboard.
 2. Open the **SQL Editor**.
 3. Execute `schema.sql` from this repository against the `snapspend_db` database (fresh database).
-   - **Upgrading an existing SnapSpend database?** Run `supabase/migrations/0001_canonical_categories.sql` instead — it preserves your expense data, remaps old categories onto the canonical four, and drops the removed bank/investment tables. **Back up your database first.**
+   - **Upgrading an existing SnapSpend database?** Run the migration scripts under `supabase/migrations/` in order (`0001` → `0002` → `0003`) — they preserve your expense data and remap old categories onto the canonical five. **Back up your database first.**
 4. Copy `.env.example` to `.env` and add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+5. *(Optional)* **Cloudflare Turnstile** for bot protection: create a widget at `dash.cloudflare.com → Turnstile`, put its **Site Key** in `.env` as `VITE_TURNSTILE_SITE_KEY`, and paste its **Secret Key** in Supabase → *Authentication → Bot and Abuse Protection*.
 
 ### 2. Install & Run
 
@@ -130,6 +143,7 @@ All variables live in `.env` (see `.env.example`). `VITE_` variables are baked i
 | `VITE_SUPABASE_ANON_KEY`   | Supabase anon (public) API key                                 |
 | `VITE_GEMINI_API_KEY`      | Gemini API key — used by the receipt ParserEngine (app + eval) |
 | `VITE_OPENROUTER_API_KEY`  | OpenRouter API key — used by the evaluation module             |
+| `VITE_TURNSTILE_SITE_KEY`  | Cloudflare Turnstile site key — bot protection on auth (optional) |
 
 The AI Assistant edge function uses server-side secrets set with the Supabase CLI (see below), **not** `.env`.
 
@@ -144,7 +158,7 @@ The AI Assistant edge function uses server-side secrets set with the Supabase CL
 | `profiles`                | Username + email per user                        |
 | `income_sources`          | Income categories (Salary, Bonus, Other)         |
 | `income_entries`          | Monthly income records                           |
-| `expense_categories`      | The 4 canonical categories per user              |
+| `expense_categories`      | The 5 canonical categories per user        |
 | `expense_entries`         | One row per expense (manual or scanned receipt)  |
 | `expense_receipt_items`   | Itemized line items for scanned receipts         |
 
@@ -178,22 +192,37 @@ Log salary/bonus credits per month. SnapSpend remembers last month's salary and 
 
 Record expenses manually or **scan a receipt**: upload a photo and the ParserEngine (Gemini by default) returns structured JSON (vendor, date, total, itemized lines with canonical categories) for review before saving. CSV import is also supported. Item-level categories are always normalized onto the canonical five.
 
-### 5. AI Assistant
+### 5. Reports
 
-Ask questions in plain English, e.g. *"How much did I spend on Groceries this month?"* or *"What was my biggest expense this year?"*
+The Reports tab renders a month snapshot of your finances and lets you download a clean, single-page **PDF**:
 
-The assistant uses **tool calling**: the LLM receives your question plus a system prompt with the database schema and few-shot SQL examples, decides whether to call a `query_expenses` tool, executes the (validated, read-only, user-scoped) SQL, and answers concisely from the grounded results. Questions outside its scope (anything not about your expense/income data) are answered with *"I can't answer questions outside of my scope"*.
+- **Net Savings panel** — savings and savings rate for the month.
+- **Key figures + deltas** — total income, expenses and savings rate with month-over-month changes vs. the previous month.
+- **Ledgers** — income sources and expense categories side by side.
+- **Spending by category** — a donut chart beside its category list (colour dot, weight %, amount) aligned to the page's right half.
 
-1. Deploy the edge function (once):
-   ```bash
-   supabase login
-   supabase link --project-ref YOUR_PROJECT_REF
-   supabase secrets set GEMINI_API_KEY=your-gemini-key    # required for the gemini provider
-   supabase secrets set OPENROUTER_API_KEY=your-key       # only for the openrouter provider
-   supabase functions deploy assistant
-   ```
-   (`SUPABASE_DB_URL` and `SUPABASE_JWKS` are auto-provisioned by the platform — no manual secrets needed.)
-2. In the app, open the **AI Assistant** tab and type your question.
+The PDF is generated client-side with jsPDF and reuses the exact same aggregation as the UI (`getMonthlyReportData`), so the export always matches what you see on screen.
+
+### 6. AI Assistant
+
+Ask questions in plain English, e.g. *"How much did I spend on Groceries this month?"* or *"What was my biggest expense this year?"*. The assistant answers **only** from your own expense/income data — never inventing numbers — and replies in clean plain text (no Markdown). Questions outside its scope (anything not about your data) are answered verbatim with *"I can't answer questions outside of my scope"*.
+
+There are two execution paths:
+
+1. **Supabase Edge Function (text-to-SQL)** — the LLM receives the schema and few-shot SQL examples, calls a validated `query_expenses` tool when a data question needs answering, and the edge function runs the (read-only, always user-scoped) statement and returns the grounded results. This is the recommended production setup — deploy it once as described below.
+2. **Client-side fallback (Vercel builds)** — when running without the edge function, `js/assistantClient.js` talks to the Gemini API directly from the browser. It uses three tools that mirror the Dashboard exactly — `category_breakdown`, `financial_summary`, and `query_expenses` — with up to three tool rounds and per-user conversation memory. The app attaches a raw result table to a reply only when a single query produced it (multi-round answers are summaries only).
+
+To configure the edge function:
+
+```bash
+supabase login
+supabase link --project-ref YOUR_PROJECT_REF
+supabase secrets set GEMINI_API_KEY=your-gemini-key    # required for the gemini provider
+supabase secrets set OPENROUTER_API_KEY=your-key       # only for the openrouter provider
+supabase functions deploy assistant
+```
+
+(`SUPABASE_DB_URL` and `SUPABASE_JWKS` are auto-provisioned by the platform — no manual secrets needed.) Then open the **AI Assistant** tab in the app and type your question.
 
 Provider and models can be configured via edge function secrets:
 
@@ -212,7 +241,7 @@ Provider and models can be configured via edge function secrets:
 - **Gemini provider** (default): direct Google API with `response_schema` structured output.
 - **OpenRouter provider**: any vision-capable model via OpenRouter's unified API (JSON mode + schema in the prompt).
 
-Both normalize item categories onto the canonical four and return the same shape: `{ vendor, date, total_amount, purchased_items: [[name, quantity, price, currency, category], …] }`.
+Both normalize item categories onto the canonical five and return the same shape: `{ vendor, date, total_amount, purchased_items: [[name, quantity, price, currency, category], …] }`.
 
 ---
 
@@ -235,7 +264,8 @@ Metrics per (model × prompt) combination:
 
 - **No third-party tracking** — user ledger data is never sent to analytics services.
 - **Row Level Security** — every financial record is protected by `auth.uid() = user_id`.
-- **Assistant SQL safety** — the edge function only permits single `SELECT` statements, always forces `WHERE user_id = <authenticated user>`, rejects mutating keywords, and runs inside a read-only transaction.
+- **Bot protection** — Cloudflare Turnstile guards every sign-in and sign-up; the site key lives in the client while the secret stays server-side in Supabase.
+- **Assistant data safety** — the assistant only ever issues read-only, per-user queries: the edge function permits only a single validated `SELECT` and forces `WHERE user_id = <authenticated user>`, while the client fallback restricts access to an allow-list of tables and operators.
 - **Input sanitization** — user text is HTML-escaped before rendering.
 
 > **Security Notice:** No software can guarantee absolute security. Please report suspected vulnerabilities according to the project's security disclosure policy.
