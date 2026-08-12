@@ -175,8 +175,10 @@ export async function navigateTo(viewName) {
     document.querySelectorAll('#bottom-navigation-bar button').forEach(btn => {
         if (btn.getAttribute('data-target') === viewName) {
             btn.classList.add('bottom-nav-active');
+            btn.classList.remove('text-slate-400');
         } else {
             btn.classList.remove('bottom-nav-active');
+            btn.classList.add('text-slate-400');
         }
     });
 
