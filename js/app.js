@@ -52,8 +52,6 @@ async function handleAuthChange(user) {
         showSetupOverlay(false);
         document.getElementById('month-navigation-ribbon').classList.remove('hidden');
         document.getElementById('btn-logout').classList.remove('hidden');
-        const desktopNav = document.getElementById('desktop-navigation-tabs');
-        if (desktopNav) desktopNav.classList.remove('hidden');
         
         const userEmailSpan = document.getElementById('user-display-email');
         if (userEmailSpan) {
@@ -89,8 +87,6 @@ async function handleAuthChange(user) {
     } else {
         document.getElementById('month-navigation-ribbon').classList.add('hidden');
         document.getElementById('btn-logout').classList.add('hidden');
-        const desktopNav = document.getElementById('desktop-navigation-tabs');
-        if (desktopNav) desktopNav.classList.add('hidden');
         
         const userEmailSpan = document.getElementById('user-display-email');
         if (userEmailSpan) {
@@ -181,17 +177,6 @@ export async function navigateTo(viewName) {
             btn.classList.add('bottom-nav-active');
         } else {
             btn.classList.remove('bottom-nav-active');
-        }
-    });
-
-    // Highlight Active Desktop Nav Tab
-    document.querySelectorAll('#desktop-navigation-tabs button').forEach(btn => {
-        if (btn.getAttribute('data-target') === viewName) {
-            btn.classList.add('bg-brand-gradient', 'text-white', 'shadow-md', 'shadow-indigo-500/25');
-            btn.classList.remove('text-slate-500', 'dark:text-slate-400', 'hover:text-slate-900', 'dark:hover:text-white');
-        } else {
-            btn.classList.remove('bg-brand-gradient', 'text-white', 'shadow-md', 'shadow-indigo-500/25');
-            btn.classList.add('text-slate-500', 'dark:text-slate-400', 'hover:text-slate-900', 'dark:hover:text-white');
         }
     });
 
@@ -323,14 +308,6 @@ function setupUIControls() {
 
     // Bottom Navigation Module Switchers
     document.querySelectorAll('#bottom-navigation-bar button').forEach(button => {
-        button.addEventListener('click', () => {
-            const target = button.getAttribute('data-target');
-            if (target) navigateTo(target);
-        });
-    });
-
-    // Desktop Navigation Tab Switchers
-    document.querySelectorAll('#desktop-navigation-tabs button').forEach(button => {
         button.addEventListener('click', () => {
             const target = button.getAttribute('data-target');
             if (target) navigateTo(target);

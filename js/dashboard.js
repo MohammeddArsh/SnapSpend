@@ -2,17 +2,7 @@ import { supabase } from './supabase.js';
 import { currentUser } from './app.js';
 import { formatCurrency, getPrevMonth, getMonthName } from './utils.js';
 import { navigateTo } from './app.js';
-import { mapToCanonical } from './categories.js';
-
-const CATEGORY_COLORS = {
-    'Groceries': '#10b981',
-    'Pharmacy': '#3b82f6',
-    'Travel': '#8b5cf6',
-    'Households': '#14b8a6',
-    'Miscellaneous': '#f59e0b'
-};
-
-const FALLBACK_PALETTE = ['#f43f5e', '#06b6d4', '#f97316', '#14b8a6', '#6366f1', '#84cc16'];
+import { mapToCanonical, getCategoryColor } from './categories.js';
 
 export async function render(container, selectedMonth) {
     if (!currentUser) return;
@@ -61,19 +51,16 @@ export async function render(container, selectedMonth) {
         // since the parent category_id may be null or diverge from the item tags.
         // Manual entries fall back to the parent category name.
         const categoryTotals = {};
-        const categoryNames = new Set();
         (expenseEntries || []).forEach(item => {
             const items = Array.isArray(item.expense_receipt_items) ? item.expense_receipt_items : [];
             if (items.length > 0) {
                 items.forEach(ri => {
                     const catName = mapToCanonical(ri.category || 'Miscellaneous');
                     categoryTotals[catName] = (categoryTotals[catName] || 0) + (parseFloat(ri.price) || 0);
-                    categoryNames.add(catName);
                 });
             } else {
                 const catName = mapToCanonical(item.expense_categories?.name || 'Miscellaneous');
                 categoryTotals[catName] = (categoryTotals[catName] || 0) + parseFloat(item.amount);
-                categoryNames.add(catName);
             }
         });
         const categories = Object.entries(categoryTotals)
@@ -81,7 +68,7 @@ export async function render(container, selectedMonth) {
                 name,
                 amount,
                 percent: totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0,
-                color: CATEGORY_COLORS[name] || FALLBACK_PALETTE[[...categoryNames].indexOf(name) % FALLBACK_PALETTE.length]
+                color: getCategoryColor(name)
             }))
             .sort((a, b) => b.amount - a.amount);
 
@@ -100,7 +87,7 @@ export async function render(container, selectedMonth) {
                         <div class="glow-orb w-40 h-40 bg-white/20 -top-16 -right-16"></div>
                         <div class="glow-orb w-24 h-24 bg-fuchsia-400/40 -bottom-10 -left-10"></div>
                         <div class="flex justify-between items-start z-10 select-none">
-                            <span class="text-[10px] uppercase font-bold text-white/70 tracking-widest">Monthly Net Savings</span>
+                            <span class="text-[11px] uppercase font-bold text-white/70 tracking-widest">Monthly Net Savings</span>
                             <div class="bg-white/15 backdrop-blur-sm p-2 rounded-xl text-white">
                                 <i data-lucide="wallet" class="w-4 h-4"></i>
                             </div>
@@ -142,13 +129,13 @@ export async function render(container, selectedMonth) {
                     <!-- 1. Monthly Income -->
                     <div id="card-monthly-income" class="bento-card bento-card-hover p-5 cursor-pointer">
                         <div class="flex justify-between items-start mb-3">
-                            <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Monthly Income</span>
+                            <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Monthly Income</span>
                             <div class="bg-emerald-50 dark:bg-emerald-950/60 p-2 rounded-xl text-emerald-600 dark:text-emerald-400">
                                 <i data-lucide="trending-up" class="w-4 h-4"></i>
                             </div>
                         </div>
                         <div class="space-y-1.5">
-                            <span class="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider block font-semibold">${getMonthName(selectedMonth)} credits</span>
+                            <span class="text-[11px] text-slate-400 dark:text-slate-500 uppercase tracking-wider block font-semibold">${getMonthName(selectedMonth)} credits</span>
                             <div class="text-2xl font-mono font-bold text-slate-900 dark:text-white leading-tight tabular">${formatCurrency(totalIncome)}</div>
                             <div class="text-[11px] ${incomePercentChange >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'} font-semibold flex items-center gap-1 mt-2 pt-2.5 border-t border-slate-100 dark:border-slate-800">
                                 <i data-lucide="${incomePercentChange >= 0 ? 'arrow-up-right' : 'arrow-down-left'}" class="w-3 h-3"></i>
@@ -160,13 +147,13 @@ export async function render(container, selectedMonth) {
                     <!-- 2. Monthly Expenses -->
                     <div id="card-monthly-expenses" class="bento-card bento-card-hover p-5 cursor-pointer">
                         <div class="flex justify-between items-start mb-3">
-                            <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Monthly Expenses</span>
+                            <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Monthly Expenses</span>
                             <div class="bg-rose-50 dark:bg-rose-950/60 p-2 rounded-xl text-rose-600 dark:text-rose-400">
                                 <i data-lucide="trending-down" class="w-4 h-4"></i>
                             </div>
                         </div>
                         <div class="space-y-1.5">
-                            <span class="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider block font-semibold">Outflows for ${getMonthName(selectedMonth)}</span>
+                            <span class="text-[11px] text-slate-400 dark:text-slate-500 uppercase tracking-wider block font-semibold">Outflows for ${getMonthName(selectedMonth)}</span>
                             <div class="text-2xl font-mono font-bold text-slate-900 dark:text-white leading-tight tabular">${formatCurrency(totalExpenses)}</div>
                             <div class="text-[11px] ${expensePercentChange <= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'} font-semibold flex items-center gap-1 mt-2 pt-2.5 border-t border-slate-100 dark:border-slate-800">
                                 <i data-lucide="${expensePercentChange <= 0 ? 'arrow-down-right' : 'arrow-up-left'}" class="w-3 h-3"></i>
@@ -178,13 +165,13 @@ export async function render(container, selectedMonth) {
                     <!-- 3. Net Savings -->
                     <div id="card-monthly-savings" class="bento-card bento-card-hover p-5 cursor-pointer">
                         <div class="flex justify-between items-start mb-3">
-                            <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Net Savings</span>
+                            <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Net Savings</span>
                             <div class="bg-amber-50 dark:bg-amber-950/60 p-2 rounded-xl text-amber-600 dark:text-amber-400">
                                 <i data-lucide="shield" class="w-4 h-4"></i>
                             </div>
                         </div>
                         <div class="space-y-1.5">
-                            <span class="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider block font-semibold">Cash left after expenses</span>
+                            <span class="text-[11px] text-slate-400 dark:text-slate-500 uppercase tracking-wider block font-semibold">Cash left after expenses</span>
                             <div class="text-2xl font-mono font-bold text-slate-900 dark:text-white leading-tight tabular">${formatCurrency(savings)}</div>
                             <div class="text-[11px] text-amber-700 dark:text-amber-400 font-semibold flex items-center gap-1.5 mt-2 pt-2.5 border-t border-slate-100 dark:border-slate-800">
                                 <span class="px-1.5 py-0.5 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 rounded-md font-bold">${savingsRate.toFixed(0)}%</span>
@@ -197,12 +184,12 @@ export async function render(container, selectedMonth) {
 
                 <!-- Spending by Category Pie Chart -->
                 <div class="bento-card p-6 space-y-5">
-                    <div class="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-slate-800">
-                        <div>
+                    <div class="flex justify-between items-center gap-2 flex-wrap pb-3 border-b border-slate-100 dark:border-slate-800">
+                        <div class="min-w-0">
                             <h3 class="font-bold text-slate-900 dark:text-white text-base">Spending by Category</h3>
                             <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Expense distribution for ${getMonthName(selectedMonth)}</p>
                         </div>
-                        <span class="text-xs font-bold bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 px-3 py-1 rounded-full tabular">
+                        <span class="text-xs font-bold bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 px-3 py-1 rounded-full tabular shrink-0">
                             Total: ${formatCurrency(totalExpenses)}
                         </span>
                     </div>
@@ -215,11 +202,11 @@ export async function render(container, selectedMonth) {
                             <p class="text-xs text-slate-400 dark:text-slate-500 font-medium">No expenses recorded for ${getMonthName(selectedMonth)} yet.</p>
                         </div>
                     ` : `
-                        <div class="flex flex-col sm:flex-row items-center justify-center p-3 gap-8 sm:gap-12">
+                        <div class="flex flex-col sm:flex-row items-center justify-center p-3 gap-6 sm:gap-12">
                             <!-- SVG Pie Chart -->
-                            <div class="relative w-72 h-72 shrink-0 flex items-center justify-center">
+                            <div class="relative w-44 h-44 sm:w-56 sm:h-56 md:w-72 md:h-72 shrink-0 max-w-full flex items-center justify-center">
                                 <div id="pie-center-legend" class="absolute inset-0 flex flex-col items-center justify-center text-center p-4 rounded-full select-none">
-                                    <span class="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wider" id="pie-lbl">Total Spent</span>
+                                    <span class="text-[11px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wider" id="pie-lbl">Total Spent</span>
                                     <span class="text-xl font-mono font-bold text-slate-900 dark:text-white tabular animate-fade-in" id="pie-val" style="animation-delay: 500ms">${formatCurrency(totalExpenses)}</span>
                                 </div>
                                 <svg class="w-full h-full -rotate-90" viewBox="-9 -9 118 118">
@@ -242,7 +229,7 @@ export async function render(container, selectedMonth) {
                                         </div>
                                         <div class="text-right shrink-0">
                                             <div class="text-[13px] font-mono font-bold text-slate-900 dark:text-white tabular">${formatCurrency(cat.amount)}</div>
-                                            <span class="text-[10px] font-mono text-slate-400 dark:text-slate-500 tabular">${cat.percent.toFixed(1)}%</span>
+                                            <span class="text-[11px] font-mono text-slate-400 dark:text-slate-500 tabular">${cat.percent.toFixed(1)}%</span>
                                         </div>
                                     </div>
                                 `).join('')}

@@ -3,7 +3,11 @@ import { currentUser, reFetchAndRenderCurrentView, showModal, closeModal, showAc
 import { formatCurrency, escapeHTML } from './utils.js';
 import { NaiveBayesClassifier, classifyExpense, normalizeMerchantName } from './classifier.js';
 import { parseReceiptDirectly } from './parserEngine.js';
-import { CANONICAL_CATEGORIES, mapToCanonical } from './categories.js';
+import { CANONICAL_CATEGORIES, mapToCanonical, getCategoryColor } from './categories.js';
+import { createThemedDropdown } from './dropdown.js';
+
+/** Live instance of the themed category filter dropdown (set per render). */
+let filterDropdownInstance = null;
 
 /**
  * Safely parses an expense note into clean merchant name and any embedded itemized data.
@@ -240,23 +244,23 @@ function buildItemRowHTML(row, { showVendor = true, indentClass = 'pl-4' } = {})
     const isLegacyItem = isItemRow && !isRealDbId(row.itemId);
     const searchableText = `${row.itemName || ''} ${row.merchant || ''} ${row.categoryName || ''}`.toLowerCase();
     const qtyBadge = row.quantity > 1
-        ? `<span class="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-[10px] font-semibold text-slate-700 dark:text-slate-300">×${row.quantity}</span>`
+        ? `<span class="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-[11px] font-semibold text-slate-700 dark:text-slate-300">×${row.quantity}</span>`
         : '';
 
     const actions = isItemRow
         ? `
-            <button data-edit-receipt-item-id="${safeEscape(row.itemId)}" data-parent-expense-id="${row.expenseId}" class="p-1.5 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" title="Edit Item">
-                <i data-lucide="edit-2" class="w-4 h-4"></i>
+            <button data-edit-receipt-item-id="${safeEscape(row.itemId)}" data-parent-expense-id="${row.expenseId}" class="p-2 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" title="Edit Item">
+                <i data-lucide="edit-2" class="w-5 h-5"></i>
             </button>
-            <button data-delete-receipt-item-id="${safeEscape(row.itemId)}" data-parent-expense-id="${row.expenseId}" class="p-1.5 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" title="Delete Item">
-                <i data-lucide="trash-2" class="w-4 h-4"></i>
+            <button data-delete-receipt-item-id="${safeEscape(row.itemId)}" data-parent-expense-id="${row.expenseId}" class="p-2 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" title="Delete Item">
+                <i data-lucide="trash-2" class="w-5 h-5"></i>
             </button>`
         : `
-            <button data-edit-expense-id="${row.expenseId}" class="p-1.5 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" title="Edit Expense">
-                <i data-lucide="edit-2" class="w-4 h-4"></i>
+            <button data-edit-expense-id="${row.expenseId}" class="p-2 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" title="Edit Expense">
+                <i data-lucide="edit-2" class="w-5 h-5"></i>
             </button>
-            <button data-delete-expense-id="${row.expenseId}" class="p-1.5 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" title="Delete Expense">
-                <i data-lucide="trash-2" class="w-4 h-4"></i>
+            <button data-delete-expense-id="${row.expenseId}" class="p-2 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" title="Delete Expense">
+                <i data-lucide="trash-2" class="w-5 h-5"></i>
             </button>`;
 
     const vendorCell = showVendor
@@ -290,9 +294,13 @@ function buildItemRowHTML(row, { showVendor = true, indentClass = 'pl-4' } = {})
                 ${safeEscape(row.date)}
             </td>
             <td class="p-3.5 hidden md:table-cell">
-                <span class="px-2 py-0.5 bg-brand-50 dark:bg-brand-950/50 text-brand-700 dark:text-brand-300 border border-brand-200/60 dark:border-brand-900/60 rounded-full text-[10px] font-medium">
-                    ${safeEscape(row.categoryName || 'General')}
-                </span>
+                ${(() => {
+                    const catColor = getCategoryColor(row.categoryName || 'General');
+                    return `<span class="px-2 py-0.5 rounded-full text-[11px] font-medium border inline-flex items-center gap-1.5" style="background-color: ${catColor}1a; color: ${catColor}; border-color: ${catColor}40">
+                        <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background-color: ${catColor}"></span>
+                        ${safeEscape(row.categoryName || 'General')}
+                    </span>`;
+                })()}
             </td>
             <td class="p-3.5 text-right pr-4">
                 <div class="inline-flex items-center gap-1">${actions}</div>
@@ -346,7 +354,7 @@ function buildMerchantGroupsHTML(displayRows) {
                         <i data-lucide="store" class="w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0"></i>
                         <div class="min-w-0 text-left">
                             <div class="font-bold text-slate-900 dark:text-white truncate">${safeEscape(group.displayName)}</div>
-                            <div class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                            <div class="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
                                 ${entryCount} transaction${entryCount === 1 ? '' : 's'} · ${group.rows.length} item${group.rows.length === 1 ? '' : 's'}
                             </div>
                         </div>
@@ -463,9 +471,6 @@ export async function render(container, selectedMonth) {
                         <h2 class="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white">Expenses</h2>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
-                        <button id="btn-manage-exp-categories" class="px-3 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer">
-                            <i data-lucide="settings" class="w-3.5 h-3.5"></i> Categories
-                        </button>
                         <button id="btn-import-csv" class="px-3 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer">
                             <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i> Import CSV
                         </button>
@@ -483,12 +488,12 @@ export async function render(container, selectedMonth) {
                             <i data-lucide="arrow-down-left" class="w-5 h-5"></i>
                         </div>
                         <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider">Total Monthly Expenditure</span>
+                            <span class="text-[11px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider">Total Monthly Expenditure</span>
                             <div class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Sum of cash outflows in selected month</div>
                         </div>
                     </div>
                     <div class="text-left sm:text-right relative z-10">
-                        <span class="text-[10px] text-slate-400 dark:text-slate-500 font-medium leading-none block">Aggregate Expenses</span>
+                        <span class="text-[11px] text-slate-400 dark:text-slate-500 font-medium leading-none block">Aggregate Expenses</span>
                         <span class="text-2xl font-mono font-bold text-slate-950 dark:text-white tabular">${formatCurrency(totalExpenses)}</span>
                     </div>
                 </div>
@@ -501,19 +506,14 @@ export async function render(container, selectedMonth) {
                             <i data-lucide="search" class="w-4 h-4"></i>
                         </div>
                     </div>
-                    <div>
-                        <select id="expense-filter-cat" class="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 outline-none rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all text-xs text-slate-700 dark:text-slate-300 font-medium font-sans">
-                            <option value="ALL">All Categories</option>
-                            ${categories.map(c => `<option value="${c.id}">${escapeHTML(c.name)}</option>`).join('')}
-                        </select>
-                    </div>
+                    <div id="expense-filter-cat-wrap"></div>
                 </div>
 
                 <!-- Category Filter Pill Bar -->
 <div class="space-y-2 select-none my-3">
     <div class="flex items-center justify-between">
         <label class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Filter by Category</label>
-        <span id="active-filter-label" class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Showing: All</span>
+        <span id="active-filter-label" class="text-[11px] text-slate-400 dark:text-slate-500 font-medium">Showing: All</span>
     </div>
     
     <div class="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
@@ -522,7 +522,7 @@ export async function render(container, selectedMonth) {
                 data-category-filter="all" 
                 class="category-filter-btn active px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border bg-brand-gradient border-transparent text-white shadow-md shadow-indigo-500/25 cursor-pointer flex items-center gap-1.5">
             <span>All Categories</span>
-            <span class="px-1.5 py-0.2 text-[10px] bg-white/20 text-white rounded-full font-mono">${displayRows.length}</span>
+            <span class="px-1.5 py-0.2 text-[11px] bg-white/20 text-white rounded-full font-mono">${displayRows.length}</span>
         </button>
 
         <!-- Dynamic Category Filter Buttons -->
@@ -531,14 +531,16 @@ export async function render(container, selectedMonth) {
                 r.categoryId === cat.id || 
                 (r.categoryName && r.categoryName.toLowerCase() === cat.name.toLowerCase())
             ).length;
+            const catColor = getCategoryColor(cat.name);
 
             return `
                 <button type="button" 
                         data-category-filter="${escapeHTML(cat.name)}" 
                         data-category-id="${cat.id}"
                         class="category-filter-btn px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border bg-slate-100/80 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-white cursor-pointer flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${catColor}"></span>
                     <span>${escapeHTML(cat.name)}</span>
-                    <span class="px-1.5 py-0.2 text-[10px] bg-slate-200/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-full font-mono">${count}</span>
+                    <span class="px-1.5 py-0.2 text-[11px] bg-slate-200/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-full font-mono">${count}</span>
                 </button>
             `;
         }).join('')}
@@ -556,7 +558,7 @@ export async function render(container, selectedMonth) {
                 <i data-lucide="store" class="w-3.5 h-3.5 inline-block mr-1 -mt-0.5"></i> Merchants
             </button>
         </div>
-        <span class="text-[10px] font-mono text-slate-400 dark:text-slate-500">Newest First</span>
+        <span class="text-[11px] font-mono text-slate-400 dark:text-slate-500">Newest First</span>
     </div>
 
     <!-- Items View (default): one row per item, vendor mentioned -->
@@ -564,7 +566,7 @@ export async function render(container, selectedMonth) {
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse text-[13px]" id="expense-main-table">
                 <thead>
-                    <tr class="bg-slate-50/80 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    <tr class="bg-slate-50/80 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         <th class="p-3.5 pl-4">Item</th>
                         <th class="p-3.5 w-28">Amount</th>
                         <th class="p-3.5 w-28 hidden sm:table-cell">Date</th>
@@ -661,17 +663,12 @@ function setupExpensesListeners(categories, entries, selectedMonth, classifier, 
         openExpenseModal(null, categories, selectedMonth, classifier, trainingData);
     });
 
-    // 2. MANAGE CATEGORIES TRIGGER
-    document.getElementById('btn-manage-exp-categories').addEventListener('click', () => {
-        openCategoriesModal(categories);
-    });
-
-    // 3. SECURE FILE CSV IMPORTER
+    // 2. SECURE FILE CSV IMPORTER
     document.getElementById('btn-import-csv').addEventListener('click', () => {
         openCsvImportModal(categories, selectedMonth, classifier);
     });
 
-    // 4. COLLAPSED DRAWER ACCORDIONS
+    // 3. COLLAPSED DRAWER ACCORDIONS
     document.querySelectorAll('[data-collapse-trigger]').forEach(div => {
         div.addEventListener('click', (e) => {
             // Stop if they clicked edit/delete within collapsed view
@@ -696,11 +693,11 @@ function setupExpensesListeners(categories, entries, selectedMonth, classifier, 
 
     // 6. LIVE SEARCH AND FILTERS CONTROLLER
     const search = document.getElementById('expense-search');
-    const filterSelect = document.getElementById('expense-filter-cat');
+    const filterWrap = document.getElementById('expense-filter-cat-wrap');
 
     const handleSearchFilter = () => {
         const query = search.value.trim().toLowerCase();
-        const catTarget = filterSelect.value;
+        const catTarget = filterDropdown.getValue();
         const selectedCatObj = categories.find(c => c.id === catTarget);
         const catTargetName = selectedCatObj ? selectedCatObj.name.toLowerCase() : '';
 
@@ -733,8 +730,16 @@ function setupExpensesListeners(categories, entries, selectedMonth, classifier, 
         });
     };
 
+    const filterDropdown = createThemedDropdown({
+        options: [{ value: 'ALL', label: 'All Categories' }, ...categories.map(c => ({ value: c.id, label: c.name, color: getCategoryColor(c.name) }))],
+        value: 'ALL',
+        placeholder: 'All Categories',
+        onChange: handleSearchFilter,
+    });
+    filterDropdownInstance = filterDropdown;
+    if (filterWrap) filterWrap.appendChild(filterDropdown.el);
+
     search.addEventListener('input', handleSearchFilter);
-    filterSelect.addEventListener('change', handleSearchFilter);
 
     // 5b. ITEMS / MERCHANTS TAB SWITCHER
     document.querySelectorAll('.exp-tab-btn').forEach(btn => {
@@ -860,13 +865,11 @@ function openExpenseModal(entry, categories, selectedMonth, classifier, training
     const isEdit = !!entry;
     const pv = (key) => prefill ? (prefill[key] ?? '') : '';
     const uncategorized = isEdit && !entry.category_id;
-    const catOptionsHTML = [
-        ...(uncategorized ? ['<option value="" selected>— Uncategorized —</option>'] : []),
-        ...categories.map(c => {
-            const sel = (isEdit && entry.category_id === c.id) || (!isEdit && prefill && prefill.category_id === c.id) ? 'selected' : '';
-            return `<option value="${c.id}" ${sel}>${escapeHTML(c.name)}</option>`;
-        })
-    ].join('');
+    const defaultCatId = (isEdit && entry.category_id) || (!isEdit && prefill && prefill.category_id) || '';
+    const catOptions = [
+        ...(uncategorized ? [{ value: '', label: '— Uncategorized —' }] : []),
+        ...categories.map(c => ({ value: c.id, label: c.name, color: getCategoryColor(c.name) })),
+    ];
 
     const defaultDate = isEdit ? entry.date : (prefill && prefill.date ? prefill.date : `${selectedMonth}-01`);
 
@@ -903,9 +906,7 @@ function openExpenseModal(entry, categories, selectedMonth, classifier, training
             <form id="expense-entry-form" class="space-y-4">
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Category</label>
-                    <select id="exp-cat-id" required class="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 outline-none rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all text-xs font-medium font-sans text-slate-900 dark:text-slate-100">
-                        ${catOptionsHTML}
-                    </select>
+                    <div id="exp-cat-id-wrap"></div>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Expense Date</label>
@@ -933,14 +934,24 @@ function openExpenseModal(entry, categories, selectedMonth, classifier, training
     showModal(html, () => {
         document.getElementById('btn-cancel-modal').addEventListener('click', closeModal);
 
+        const catDropdown = createThemedDropdown({
+            options: catOptions,
+            value: defaultCatId,
+            placeholder: 'Select a category…',
+            required: true,
+            onChange: () => { userManuallyChangedCategory = true; },
+        });
+        document.getElementById('exp-cat-id-wrap').appendChild(catDropdown.el);
+
         document.getElementById('expense-entry-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const categoryId = document.getElementById('exp-cat-id').value;
+            const categoryId = catDropdown.getValue();
             const date = document.getElementById('exp-date').value;
             const amount = parseFloat(document.getElementById('exp-amount').value);
             const note = document.getElementById('exp-note').value;
 
             if (!categoryId) {
+                catDropdown.setError(true);
                 alert("Please select a category for this expense.");
                 return;
             }
@@ -1005,12 +1016,8 @@ function openExpenseModal(entry, categories, selectedMonth, classifier, training
 
         // Setup AI Autocomplete & Voice dictation listeners
         const expNoteInput = document.getElementById('exp-note');
-        const expCatSelect = document.getElementById('exp-cat-id');
 
         let userManuallyChangedCategory = false;
-        expCatSelect.addEventListener('change', () => {
-            userManuallyChangedCategory = true;
-        });
 
         if (!isEdit) {
             const handleCategoryPrediction = () => {
@@ -1020,7 +1027,7 @@ function openExpenseModal(entry, categories, selectedMonth, classifier, training
 
                 const classification = classifyExpense({ merchant: text, note: text }, categories, classifier);
                 if (classification && classification.categoryId) {
-                    expCatSelect.value = classification.categoryId;
+                    catDropdown.setValue(classification.categoryId);
                     console.log(`[Category Autocomplete Debug] Input: "${text}" -> Category: "${classification.categoryName}" (ID: ${classification.categoryId}, Conf: ${classification.confidence}, Reason: "${classification.reason}")`);
                 }
             };
@@ -1182,18 +1189,18 @@ function openCsvImportModal(categories, selectedMonth, classifier) {
                 </div>
 
                 <div class="space-y-3">
-                    <div class="grid grid-cols-3 gap-2">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
-                            <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Date Column</label>
-                            <select id="map-date" class="w-full px-2 py-1.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-900 dark:text-slate-100"></select>
+                            <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Date Column</label>
+                            <div id="map-date-wrap"></div>
                         </div>
                         <div>
-                            <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Amount Spend</label>
-                            <select id="map-amount" class="w-full px-2 py-1.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-900 dark:text-slate-100"></select>
+                            <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Amount Spend</label>
+                            <div id="map-amount-wrap"></div>
                         </div>
                         <div>
-                            <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Description Note</label>
-                            <select id="map-desc" class="w-full px-2 py-1.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-900 dark:text-slate-100"></select>
+                            <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Description Note</label>
+                            <div id="map-desc-wrap"></div>
                         </div>
                     </div>
                 </div>
@@ -1227,6 +1234,13 @@ function openCsvImportModal(categories, selectedMonth, classifier) {
 
     showModal(html, () => {
         const fileSelector = document.getElementById('csv-file-selector');
+
+        const mapDateDropdown = createThemedDropdown({ size: 'sm', placeholder: 'Column…' });
+        const mapAmtDropdown = createThemedDropdown({ size: 'sm', placeholder: 'Column…' });
+        const mapDescDropdown = createThemedDropdown({ size: 'sm', placeholder: 'Column…' });
+        document.getElementById('map-date-wrap').appendChild(mapDateDropdown.el);
+        document.getElementById('map-amount-wrap').appendChild(mapAmtDropdown.el);
+        document.getElementById('map-desc-wrap').appendChild(mapDescDropdown.el);
         
         // CSV Parsing tracking state
         let parsedRows = []; // Raw un-headers array
@@ -1272,21 +1286,17 @@ function openCsvImportModal(categories, selectedMonth, classifier) {
                 parsedRows = rows.slice(1);
 
                 // Populate selections
-                const selectDate = document.getElementById('map-date');
-                const selectAmt = document.getElementById('map-amount');
-                const selectDesc = document.getElementById('map-desc');
-
-                const dropHTML = headers.map((h, i) => `<option value="${i}">${h || `Col ${i}`}</option>`).join('');
-                selectDate.innerHTML = dropHTML;
-                selectAmt.innerHTML = dropHTML;
-                selectDesc.innerHTML = dropHTML;
+                const dropOptions = headers.map((h, i) => ({ value: i, label: h || `Col ${i}` }));
+                mapDateDropdown.setOptions(dropOptions);
+                mapAmtDropdown.setOptions(dropOptions);
+                mapDescDropdown.setOptions(dropOptions);
 
                 // Try to predict cols index
                 headers.forEach((h, idx) => {
                     const low = h.toLowerCase();
-                    if (low.includes('date')) selectDate.value = idx;
-                    else if (low.includes('amount') || low.includes('spent') || low.includes('debit')) selectAmt.value = idx;
-                    else if (low.includes('desc') || low.includes('note') || low.includes('particular')) selectDesc.value = idx;
+                    if (low.includes('date')) mapDateDropdown.setValue(idx);
+                    else if (low.includes('amount') || low.includes('spent') || low.includes('debit')) mapAmtDropdown.setValue(idx);
+                    else if (low.includes('desc') || low.includes('note') || low.includes('particular')) mapDescDropdown.setValue(idx);
                 });
             };
             reader.readAsText(file);
@@ -1294,9 +1304,14 @@ function openCsvImportModal(categories, selectedMonth, classifier) {
 
         // Mapping compile
         document.getElementById('btn-process-mapped').addEventListener('click', () => {
-            const dateIdx = parseInt(document.getElementById('map-date').value);
-            const amtIdx = parseInt(document.getElementById('map-amount').value);
-            const descIdx = parseInt(document.getElementById('map-desc').value);
+            const dateIdx = parseInt(mapDateDropdown.getValue());
+            const amtIdx = parseInt(mapAmtDropdown.getValue());
+            const descIdx = parseInt(mapDescDropdown.getValue());
+
+            if (isNaN(dateIdx) || isNaN(amtIdx) || isNaN(descIdx)) {
+                alert("Please map all three columns (Date, Amount, Description) before compiling.");
+                return;
+            }
 
             // Stage 2 hide, Stage 3 show
             document.getElementById('csv-stage-2').classList.add('hidden');
@@ -1305,6 +1320,7 @@ function openCsvImportModal(categories, selectedMonth, classifier) {
 
             const rowsContainer = document.getElementById('csv-allocation-sheets-rows');
             rowsContainer.innerHTML = '';
+            const rowCatDropdowns = {};
 
             const mappedData = parsedRows.map((r, rowIdx) => {
                 // Ensure row has correct indices
@@ -1324,27 +1340,28 @@ function openCsvImportModal(categories, selectedMonth, classifier) {
 
                 console.log(`[CSV Import Classification Debug] Desc: "${desc}" -> Category: "${rowClassification.categoryName}" (ID: ${rowClassification.categoryId}, Conf: ${rowClassification.confidence}, Reason: "${rowClassification.reason}")`);
 
-                const categoryDrop = categories.map(c => {
-                    const sel = c.id === rowClassification.categoryId ? 'selected' : '';
-                    return `<option value="${c.id}" ${sel}>${escapeHTML(c.name)}</option>`;
-                }).join('');
-
                 const item = document.createElement('div');
                 item.className = "p-3 bg-white dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-800/50 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs";
                 item.innerHTML = `
                     <div class="space-y-0.5 grow">
-                        <span class="text-[10px] text-slate-400 dark:text-slate-500 font-mono font-bold leading-none block">${rowDate}</span>
-                        <input type="text" value="${desc}" class="font-semibold text-slate-800 dark:text-slate-200 bg-transparent outline-none w-full border-b border-transparent focus:border-slate-300 dark:focus:border-slate-600" id="row-desc-${rowIdx}" />
+                        <span class="text-[11px] text-slate-400 dark:text-slate-500 font-mono font-bold leading-none block">${rowDate}</span>
+                        <input type="text" value="${escapeHTML(desc)}" class="font-semibold text-slate-800 dark:text-slate-200 bg-transparent outline-none w-full border-b border-transparent focus:border-slate-300 dark:focus:border-slate-600" id="row-desc-${rowIdx}" />
                         <span class="font-mono text-xs font-semibold text-rose-600 dark:text-rose-400 block tabular">€${rawAmt}</span>
                     </div>
                     <div class="sm:w-1/3 shrink-0">
-                        <label class="block text-[9px] uppercase tracking-wider font-bold text-slate-400 dark:text-slate-500 mb-1">Tag Category</label>
-                        <select id="row-cat-${rowIdx}" class="w-full bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-xl p-1.5 text-[11px] font-sans font-medium text-slate-900 dark:text-slate-100">
-                            ${categoryDrop}
-                        </select>
+                        <label class="block text-[11px] uppercase tracking-wider font-bold text-slate-400 dark:text-slate-500 mb-1">Tag Category</label>
+                        <div id="row-cat-wrap-${rowIdx}"></div>
                     </div>
                 `;
                 rowsContainer.appendChild(item);
+
+                const rowCatDropdown = createThemedDropdown({
+                    options: categories.map(c => ({ value: c.id, label: c.name, color: getCategoryColor(c.name) })),
+                    value: rowClassification.categoryId,
+                    size: 'sm',
+                });
+                rowCatDropdowns[rowIdx] = rowCatDropdown;
+                item.querySelector(`#row-cat-wrap-${rowIdx}`).appendChild(rowCatDropdown.el);
 
                 return {
                     rowIdx,
@@ -1365,7 +1382,7 @@ function openCsvImportModal(categories, selectedMonth, classifier) {
                     // Scan current elements to build write logs payload
                     const inserts = mappedData.map(d => {
                         const noteVal = document.getElementById(`row-desc-${d.rowIdx}`).value;
-                        const catId = document.getElementById(`row-cat-${d.rowIdx}`).value;
+                        const catId = rowCatDropdowns[d.rowIdx] ? rowCatDropdowns[d.rowIdx].getValue() : '';
                         
                         const isoDate = d.date || `${selectedMonth}-01`;
 
@@ -1412,9 +1429,8 @@ function openEditSingleItemModal(rowItem, categories, selectedMonth) {
         || categories.find(c => c.name.toLowerCase() === 'miscellaneous')
         || null;
 
-    const catOptions = categories.length > 0 ? categories
-        .map(c => `<option value="${c.id}" ${defaultCat && c.id === defaultCat.id ? 'selected' : ''}>${escapeHTML(c.name)}</option>`)
-        .join('') : `<option value="">General</option>`;
+    const catOptions = categories.length > 0 ? categories.map(c => ({ value: c.id, label: c.name, color: getCategoryColor(c.name) })) : [{ value: '', label: 'General' }];
+    const defaultCatId = defaultCat ? defaultCat.id : '';
 
     const html = `
         <div id="edit-item-modal-container" class="p-1">
@@ -1445,9 +1461,7 @@ function openEditSingleItemModal(rowItem, categories, selectedMonth) {
                 </div>
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Category</label>
-                    <select id="edit-item-cat" class="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 outline-none rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all text-xs font-medium font-sans text-slate-900 dark:text-slate-100">
-                        ${catOptions}
-                    </select>
+                    <div id="edit-item-cat-wrap"></div>
                 </div>
                 <div class="flex items-center justify-between gap-3 pt-2">
                     <button type="button" id="btn-cancel-edit-item" class="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-all cursor-pointer">Cancel</button>
@@ -1459,6 +1473,13 @@ function openEditSingleItemModal(rowItem, categories, selectedMonth) {
 
     showModal(html, () => {
         document.getElementById('btn-cancel-edit-item').addEventListener('click', closeModal);
+
+        const catDropdown = createThemedDropdown({
+            options: catOptions,
+            value: defaultCatId,
+            placeholder: 'Select a category…',
+        });
+        document.getElementById('edit-item-cat-wrap').appendChild(catDropdown.el);
 
         document.getElementById('edit-item-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1472,7 +1493,7 @@ function openEditSingleItemModal(rowItem, categories, selectedMonth) {
             const name = document.getElementById('edit-item-name').value.trim();
             const qty = parseFloat(document.getElementById('edit-item-qty').value) || 1;
             const price = parseFloat(document.getElementById('edit-item-price').value) || 0;
-            const category = document.getElementById('edit-item-cat').value;
+            const category = catDropdown.getValue();
 
             if (!name) {
                 alert("Please enter an item name.");
@@ -1522,158 +1543,6 @@ function openEditSingleItemModal(rowItem, categories, selectedMonth) {
     });
 }
 
-/**
- * Categories Master CRUD Editor Modals
- */
-function openCategoriesModal(categories) {
-    const html = `
-        <div id="categories-modal-container" class="p-1">
-            <div class="flex items-center gap-3 mb-5">
-                <span class="bg-brand-gradient p-2.5 rounded-xl text-white shadow-lg shadow-indigo-500/30">
-                    <i data-lucide="tag" class="w-4 h-4"></i>
-                </span>
-                <div>
-                    <h3 class="text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-none">Expense Categories</h3>
-                    <p class="text-slate-500 dark:text-slate-400 text-xs mt-1">Define or modify categories used in your monthly logging.</p>
-                </div>
-            </div>
-
-            <form id="add-exp-cat-form" class="flex gap-2 mb-4">
-                <input type="text" id="new-cat-name" required placeholder="Add Category (E.g., Medical, Subscriptions)" class="grow px-3.5 py-2.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 outline-none rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all text-xs text-slate-900 dark:text-slate-100" />
-                <button type="submit" class="bg-brand-gradient hover:brightness-110 text-white rounded-xl px-4 py-2 text-xs font-semibold shadow-md shadow-indigo-500/25 cursor-pointer">Add</button>
-            </form>
-
-            <div class="max-h-[220px] overflow-y-auto mb-5 border border-slate-100 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 scrollbar-thin">
-                ${categories.length === 0 ? `
-                    <p class="p-4 text-center text-slate-400 dark:text-slate-500 text-xs">No custom categories established yet.</p>
-                ` : categories.map(c => `
-                    <div class="flex items-center justify-between p-3 bg-white dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all text-[13px]" data-cat-row="${c.id}">
-                        <input type="text" value="${escapeHTML(c.name)}" data-item-cat-id="${c.id}" class="cat-input-name font-bold text-slate-800 dark:text-slate-200 bg-transparent border-b border-transparent focus:border-brand-500 outline-none pb-0.5" />
-                        <div class="flex items-center gap-1.5">
-                            <button type="button" data-save-exp-cat="${c.id}" class="btn-save-cat hidden text-brand-600 dark:text-brand-400 hover:text-brand-700 font-semibold text-[11px] h-6 px-1 cursor-pointer">Save</button>
-                            <button type="button" data-del-exp-cat="${c.id}" class="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 p-1 cursor-pointer transition-all">
-                                <i data-lucide="trash" class="w-3.5 h-3.5"></i>
-                            </button>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-
-            <div class="flex justify-end">
-                <button type="button" id="btn-close-cat-modal" class="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium rounded-xl text-xs cursor-pointer transition-all">Close Panel</button>
-            </div>
-        </div>
-    `;
-
-    showModal(html, () => {
-        const container = document.getElementById('categories-modal-container');
-        if (!container) return;
-
-        // Initialize Lucide icons if available
-        if (window.lucide) window.lucide.createIcons();
-
-        // 1. Add Category Form Submission
-        const addForm = container.querySelector('#add-exp-cat-form');
-        if (addForm) {
-            addForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const input = document.getElementById('new-cat-name');
-                const name = input ? input.value.trim() : '';
-                if (!name) return;
-
-                showActionSpinner(true);
-                try {
-                    const { error } = await supabase
-                        .from('expense_categories')
-                        .insert({ user_id: currentUser.id, name });
-                    if (error) throw error;
-                    
-                    closeModal();
-                    await reFetchAndRenderCurrentView();
-                } catch (err) {
-                    alert("Creation failed: " + err.message);
-                } finally {
-                    showActionSpinner(false);
-                }
-            });
-        }
-
-        // 2. Input event listener to show the "Save" button when category text changes
-        container.addEventListener('input', (e) => {
-            if (e.target.matches('.cat-input-name')) {
-                const catId = e.target.getAttribute('data-item-cat-id');
-                const saveBtn = container.querySelector(`[data-save-exp-cat="${catId}"]`);
-                if (saveBtn) {
-                    saveBtn.classList.remove('hidden');
-                    saveBtn.style.display = 'inline-block';
-                }
-            }
-        });
-
-        // 3. Delegated Click Listener for Close, Save, and Delete Actions
-        container.addEventListener('click', async (e) => {
-            // Close Button
-            if (e.target.closest('#btn-close-cat-modal')) {
-                closeModal();
-                return;
-            }
-
-            // Save Category Name
-            const saveBtn = e.target.closest('[data-save-exp-cat]');
-            if (saveBtn) {
-                const catId = saveBtn.getAttribute('data-save-exp-cat');
-                const input = container.querySelector(`input[data-item-cat-id="${catId}"]`);
-                const newName = input ? input.value.trim() : '';
-
-                if (!newName) {
-                    alert("Category name cannot be empty.");
-                    return;
-                }
-
-                showActionSpinner(true);
-                try {
-                    const { error } = await supabase
-                        .from('expense_categories')
-                        .update({ name: newName })
-                        .eq('id', catId);
-                    if (error) throw error;
-                    
-                    closeModal();
-                    await reFetchAndRenderCurrentView();
-                } catch (err) {
-                    alert("Update failed: " + err.message);
-                } finally {
-                    showActionSpinner(false);
-                }
-                return;
-            }
-
-            // Delete Category
-            const delBtn = e.target.closest('[data-del-exp-cat]');
-            if (delBtn) {
-                const catId = delBtn.getAttribute('data-del-exp-cat');
-                if (confirm("Deleting this category will not delete your expense records — existing expenses will become uncategorized and appear under Miscellaneous. Continue?")) {
-                    showActionSpinner(true);
-                    try {
-                        const { error } = await supabase
-                            .from('expense_categories')
-                            .delete()
-                            .eq('id', catId);
-                        if (error) throw error;
-                        
-                        closeModal();
-                        await reFetchAndRenderCurrentView();
-                    } catch (err) {
-                        alert("Delete failed: " + err.message);
-                    } finally {
-                        showActionSpinner(false);
-                    }
-                }
-            }
-        });
-    });
-}
-
 let activeCategoryFilter = 'all';
 
 function setupCategoryFilterDelegation() {
@@ -1698,7 +1567,7 @@ function setupCategoryFilterDelegation() {
             
             const badge = b.querySelector('span:last-child');
             if (badge) {
-                badge.className = "px-1.5 py-0.2 text-[10px] bg-slate-200/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-full font-mono";
+                badge.className = "px-1.5 py-0.2 text-[11px] bg-slate-200/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-full font-mono";
             }
         });
 
@@ -1708,7 +1577,7 @@ function setupCategoryFilterDelegation() {
         
         const activeBadge = btn.querySelector('span:last-child');
         if (activeBadge) {
-            activeBadge.className = "px-1.5 py-0.2 text-[10px] bg-white/20 text-white rounded-full font-mono";
+            activeBadge.className = "px-1.5 py-0.2 text-[11px] bg-white/20 text-white rounded-full font-mono";
         }
 
         if (filterLabel) {
@@ -1725,13 +1594,12 @@ setupCategoryFilterDelegation();
 
 function applyCombinedFilters() {
     const search = document.getElementById('expense-search');
-    const filterSelect = document.getElementById('expense-filter-cat');
-    if (!search || !filterSelect) return;
+    if (!search) return;
 
     const activeBtn = document.querySelector('.category-filter-btn.active');
     const targetId = activeBtn ? activeBtn.getAttribute('data-category-id') : null;
 
-    filterSelect.value = targetId || 'ALL';
+    if (filterDropdownInstance) filterDropdownInstance.setValue(targetId || 'ALL');
     search.dispatchEvent(new Event('input'));
 }
 
@@ -1787,15 +1655,15 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800">
                 <div>
-                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Vendor / Store</label>
+                    <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Vendor / Store</label>
                     <input type="text" id="itemized-merchant" value="${escapeHTML(merchantName)}" placeholder="Vendor Name" class="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-brand-500" />
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Receipt Date</label>
+                    <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Receipt Date</label>
                     <input type="date" id="itemized-date" value="${normalizedDate}" class="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-brand-500" />
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Currency</label>
+                    <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Currency</label>
                     <input type="text" id="itemized-currency" value="${escapeHTML(currencyStr)}" class="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-brand-500 uppercase" />
                 </div>
             </div>
@@ -1806,9 +1674,9 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
             </div>
 
             <div class="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-                <div class="max-h-[300px] overflow-y-auto scrollbar-thin">
-                    <table class="w-full text-left border-collapse text-xs">
-                        <thead class="sticky top-0 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                <div class="max-h-[320px] overflow-auto scrollbar-thin">
+                    <table class="w-full text-left border-collapse text-xs min-w-[560px]">
+                        <thead class="sticky top-0 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                             <tr>
                                 <th class="p-2.5 pl-3">Item Description</th>
                                 <th class="p-2.5 w-16 text-center">Qty</th>
@@ -1827,11 +1695,11 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
                     </button>
                     <div class="flex items-center gap-4 text-xs font-mono">
                         <div>
-                            <span class="text-slate-400 dark:text-slate-500 text-[10px] font-sans">Receipt Total:</span>
+                            <span class="text-slate-400 dark:text-slate-500 text-[11px] font-sans">Receipt Total:</span>
                             <span class="font-bold text-slate-800 dark:text-slate-200 tabular" id="disp-receipt-total">€${receiptTotalAmount.toFixed(2)}</span>
                         </div>
                         <div>
-                            <span class="text-slate-400 dark:text-slate-500 text-[10px] font-sans">Itemized Sum:</span>
+                            <span class="text-slate-400 dark:text-slate-500 text-[11px] font-sans">Itemized Sum:</span>
                             <span class="font-bold text-emerald-600 dark:text-emerald-400 tabular" id="disp-itemized-sum">€0.00</span>
                         </div>
                     </div>
@@ -1852,12 +1720,10 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
     showModal(html, () => {
         const body = document.getElementById('itemized-rows-body');
         let currentItems = [...items];
+        const itemCatDropdowns = {};
 
         const renderRows = () => {
             body.innerHTML = currentItems.map((it, index) => {
-                // Map any raw tag to one of the 4 canonical categories
-                const canonicalTag = mapToCanonical(it.category || 'Miscellaneous');
-
                 return `
                     <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-all" data-item-index="${index}">
                         <td class="p-2 pl-3">
@@ -1870,18 +1736,29 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
                             <input type="number" min="0" step="0.01" data-field="price" value="${parseFloat(it.price || 0).toFixed(2)}" class="w-full px-2 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono text-right outline-none focus:border-brand-500 bg-white dark:bg-slate-900/70 text-slate-900 dark:text-slate-100" />
                         </td>
                         <td class="p-2">
-                            <select data-field="category" class="w-full px-2 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-brand-700 dark:text-brand-300 bg-brand-50/50 dark:bg-brand-950/30 outline-none focus:border-brand-500 cursor-pointer">
-                                ${CANONICAL_CATEGORIES.map(cat => `<option value="${cat}" ${cat === canonicalTag ? 'selected' : ''}>${cat}</option>`).join('')}
-                            </select>
+                            <div class="item-cat-wrap" data-row-index="${index}"></div>
                         </td>
                         <td class="p-2 text-center">
-                            <button type="button" data-delete-row="${index}" class="p-1 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all">
-                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            <button type="button" data-delete-row="${index}" class="p-2 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
                             </button>
                         </td>
                     </tr>
                 `;
             }).join('');
+
+            Object.keys(itemCatDropdowns).forEach((k) => itemCatDropdowns[k].destroy());
+            body.querySelectorAll('.item-cat-wrap').forEach((wrap) => {
+                const index = parseInt(wrap.getAttribute('data-row-index'), 10);
+                const canonicalTag = mapToCanonical(currentItems[index]?.category || 'Miscellaneous');
+                itemCatDropdowns[index] = createThemedDropdown({
+                    options: CANONICAL_CATEGORIES.map(cat => ({ value: cat, label: cat, color: getCategoryColor(cat) })),
+                    value: canonicalTag,
+                    size: 'sm',
+                    variant: 'brand',
+                });
+                wrap.appendChild(itemCatDropdowns[index].el);
+            });
 
             if (window.lucide) window.lucide.createIcons();
             attachRowListeners();
@@ -1956,12 +1833,13 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
         const nameInput = tr.querySelector('[data-field="item_name"]');
         const qtyInput = tr.querySelector('[data-field="quantity"]');
         const priceInput = tr.querySelector('[data-field="price"]');
-        const catInput = tr.querySelector('[data-field="category"]');
+        const rowIndex = parseInt(tr.getAttribute('data-item-index'), 10);
+        const catDropdown = itemCatDropdowns[rowIndex];
 
         const name = nameInput ? nameInput.value.trim() : '';
         const qty = parseFloat(qtyInput ? qtyInput.value : 1) || 1;
         const price = parseFloat(priceInput ? priceInput.value : 0) || 0;
-        const cat = catInput ? catInput.value.trim() : 'General';
+        const cat = catDropdown ? catDropdown.getValue() : 'General';
 
         if (name) {
             lineItems.push({

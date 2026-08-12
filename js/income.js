@@ -1,6 +1,7 @@
 import { supabase } from './supabase.js';
 import { currentUser, reFetchAndRenderCurrentView, showModal, closeModal, showActionSpinner } from './app.js';
 import { formatCurrency, escapeHTML } from './utils.js';
+import { createThemedDropdown } from './dropdown.js';
 
 export async function render(container, selectedMonth) {
     if (!currentUser) return;
@@ -58,12 +59,12 @@ export async function render(container, selectedMonth) {
                             <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
                         </div>
                         <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider">Monthly Income Aggregation</span>
+                            <span class="text-[11px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider">Monthly Income Aggregation</span>
                             <div class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Total credited funds in base currency (EUR)</div>
                         </div>
                     </div>
                     <div class="text-left sm:text-right relative z-10">
-                        <span class="text-[10px] text-slate-400 dark:text-slate-500 font-medium leading-none block">Total Recorded</span>
+                        <span class="text-[11px] text-slate-400 dark:text-slate-500 font-medium leading-none block">Total Recorded</span>
                         <span class="text-2xl font-mono font-bold text-slate-950 dark:text-white tabular">${formatCurrency(totalIncome)}</span>
                     </div>
                 </div>
@@ -72,12 +73,12 @@ export async function render(container, selectedMonth) {
                 <div class="bento-card overflow-hidden">
                     <div class="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
                         <span class="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">Income Entries</span>
-                        <span class="text-[10px] font-mono text-slate-400 dark:text-slate-500">Newest First</span>
+                        <span class="text-[11px] font-mono text-slate-400 dark:text-slate-500">Newest First</span>
                     </div>
                     <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                            <tr class="bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                                 <th class="p-4">Source</th>
                                 <th class="p-4">Amount</th>
                                 <th class="p-4 hidden sm:table-cell">Date Credited</th>
@@ -100,18 +101,18 @@ export async function render(container, selectedMonth) {
                                 <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-all">
                                     <td class="p-4 font-semibold text-slate-800 dark:text-slate-200">
                                         ${escapeHTML(entry.income_sources?.name || 'Unassigned Source')}
-                                        <span class="block sm:hidden text-[10px] font-mono text-slate-400 dark:text-slate-500 leading-none mt-1">${entry.date_credited}</span>
+                                        <span class="block sm:hidden text-[11px] font-mono text-slate-400 dark:text-slate-500 leading-none mt-1">${entry.date_credited}</span>
                                     </td>
                                     <td class="p-4 font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular">${formatCurrency(entry.amount)}</td>
                                     <td class="p-4 font-mono text-slate-500 dark:text-slate-400 hidden sm:table-cell tabular">${entry.date_credited}</td>
                                     <td class="p-4 text-slate-400 dark:text-slate-500 hidden md:table-cell max-w-[200px] truncate" title="${escapeHTML(entry.note || '')}">${escapeHTML(entry.note || '—')}</td>
                                     <td class="p-4 text-right">
                                         <div class="inline-flex items-center gap-1">
-                                            <button data-edit-id="${entry.id}" class="p-1.5 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all">
-                                                <i data-lucide="edit-2" class="w-4 h-4"></i>
+                                            <button data-edit-id="${entry.id}" class="p-2 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all">
+                                                <i data-lucide="edit-2" class="w-5 h-5"></i>
                                             </button>
-                                            <button data-delete-id="${entry.id}" class="p-1.5 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all">
-                                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                            <button data-delete-id="${entry.id}" class="p-2 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all">
+                                                <i data-lucide="trash-2" class="w-5 h-5"></i>
                                             </button>
                                         </div>
                                     </td>
@@ -205,10 +206,8 @@ function openEntryModal(entry, sources, selectedMonth) {
     const isEdit = !!entry;
     
     // Choose selected option for dropdown
-    const sourceSelectHTML = sources.map(src => {
-        const sel = isEdit && entry.source_id === src.id ? 'selected' : '';
-        return `<option value="${src.id}" ${sel}>${escapeHTML(src.name)}</option>`;
-    }).join('');
+    const sourceOptions = sources.map(src => ({ value: src.id, label: src.name }));
+    const defaultSourceId = isEdit ? entry.source_id : (sources.length > 0 ? String(sources[0].id) : '');
 
     const defaultDate = isEdit ? entry.date_credited : `${selectedMonth}-01`;
 
@@ -227,9 +226,7 @@ function openEntryModal(entry, sources, selectedMonth) {
             <form id="income-entry-form" class="space-y-4">
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Source</label>
-                    <select id="entry-source-id" required class="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 outline-none rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all text-xs font-medium text-slate-900 dark:text-slate-100">
-                        ${sourceSelectHTML}
-                    </select>
+                    <div id="entry-source-wrap"></div>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Credited Date</label>
@@ -256,13 +253,26 @@ function openEntryModal(entry, sources, selectedMonth) {
     showModal(html, () => {
         document.getElementById('btn-cancel-modal').addEventListener('click', closeModal);
 
+        const sourceDropdown = createThemedDropdown({
+            options: sourceOptions,
+            value: defaultSourceId,
+            placeholder: 'Select a source…',
+            required: true,
+        });
+        document.getElementById('entry-source-wrap').appendChild(sourceDropdown.el);
+
         document.getElementById('income-entry-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const sourceId = document.getElementById('entry-source-id').value;
+            const sourceId = sourceDropdown.getValue();
             const date = document.getElementById('entry-date').value;
             const amount = parseFloat(document.getElementById('entry-amount').value);
             const note = document.getElementById('entry-note').value;
 
+            if (!sourceId) {
+                sourceDropdown.setError(true);
+                alert("Please select an income source.");
+                return;
+            }
             if (isNaN(amount) || amount <= 0) {
                 alert("Please enter a valid amount greater than zero.");
                 return;
@@ -342,12 +352,12 @@ function openSourcesModal(sources) {
                 ${sources.length === 0 ? `
                     <p class="p-4 text-center text-slate-400 dark:text-slate-500 text-xs">No custom sources available.</p>
                 ` : sources.map(src => `
-                    <div class="flex items-center justify-between p-3 bg-white dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all text-[13px]">
-                        <input type="text" value="${escapeHTML(src.name)}" data-source-id="${src.id}" class="font-medium text-slate-800 dark:text-slate-200 bg-transparent border-b border-transparent focus:border-brand-500 outline-none pb-0.5" />
-                        <div class="flex items-center gap-1.5">
-                            <button data-save-source-id="${src.id}" class="text-brand-600 dark:text-brand-400 hover:text-brand-700 font-semibold text-[11px] h-6 px-1 cursor-pointer hide">Save</button>
-                            <button data-del-source-id="${src.id}" class="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 p-1 cursor-pointer transition-all">
-                                <i data-lucide="trash" class="w-3.5 h-3.5"></i>
+                    <div class="flex items-center justify-between p-3 bg-white dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all text-[13px] gap-2">
+                        <input type="text" value="${escapeHTML(src.name)}" data-source-id="${src.id}" class="font-medium text-slate-800 dark:text-slate-200 bg-transparent border-b border-transparent focus:border-brand-500 outline-none pb-0.5 min-w-0 flex-1 w-full" />
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <button data-save-source-id="${src.id}" class="text-brand-600 dark:text-brand-400 hover:text-brand-700 font-semibold text-[11px] h-9 px-2 rounded-lg cursor-pointer hide">Save</button>
+                            <button data-del-source-id="${src.id}" class="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 p-1.5 cursor-pointer transition-all">
+                                <i data-lucide="trash" class="w-4 h-4"></i>
                             </button>
                         </div>
                     </div>
