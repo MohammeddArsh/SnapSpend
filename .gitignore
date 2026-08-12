@@ -47,3 +47,6 @@ ehthumbs.db
 
 .vercel
 .env*
+
+# Session transcripts
+session-*.md

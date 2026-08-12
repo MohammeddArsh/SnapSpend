@@ -177,7 +177,7 @@ export function attachDatePicker(input, { onChange = null } = {}) {
     wrap.appendChild(input);
 
     const popover = document.createElement('div');
-    popover.className = 'absolute left-auto right-0 z-50 min-w-[264px] glass-surface rounded-2xl shadow-xl overflow-hidden p-2.5 animate-scale-in hidden';
+    popover.className = 'absolute left-auto right-0 z-50 min-w-[264px] max-w-[90vw] glass-surface rounded-2xl shadow-xl overflow-hidden p-2.5 animate-scale-in hidden';
     wrap.appendChild(popover);
 
     const inst = {

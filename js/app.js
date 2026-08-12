@@ -161,6 +161,10 @@ export async function navigateTo(viewName) {
     
     currentView = viewName;
 
+    // Lock page scroll while the assistant chat is open so only the message
+    // pane scrolls on phones (prevents the whole chatbox from being draggable).
+    document.documentElement.classList.toggle('assistant-locked', viewName === 'assistant');
+
     // Toggle Month Ribbon visibility based on tab scoping
     const monthRibbon = document.getElementById('month-navigation-ribbon');
     if (monthRibbon) {
@@ -717,6 +721,8 @@ let modalBackdropHandler = null;
 let modalGeneration = 0;
 
 const MODAL_WIDTH_CLASSES = ['sm:max-w-lg', 'sm:max-w-xl', 'sm:max-w-2xl', 'sm:max-w-3xl'];
+const MODAL_SCROLL_CLASSES = ['overflow-y-auto'];
+const MODAL_SHEET_CLASSES = ['overflow-hidden', 'flex', 'flex-col'];
 
 export function showModal(htmlContent, onOpenCallback = null, options = {}) {
     const overlay = document.getElementById('global-modal');
@@ -727,6 +733,15 @@ export function showModal(htmlContent, onOpenCallback = null, options = {}) {
     const widthClass = options.widthClass || 'sm:max-w-lg';
     container.classList.remove(...MODAL_WIDTH_CLASSES);
     container.classList.add(widthClass);
+
+    // A "sheet" modal pins its content height and lets an inner region scroll
+    // (header/footer stay fixed). Every other modal stays scrollable.
+    container.classList.remove(...MODAL_SCROLL_CLASSES, ...MODAL_SHEET_CLASSES);
+    if (options.sheet) {
+        container.classList.add(...MODAL_SHEET_CLASSES);
+    } else {
+        container.classList.add(...MODAL_SCROLL_CLASSES);
+    }
 
     container.innerHTML = htmlContent;
     overlay.classList.remove('hidden');

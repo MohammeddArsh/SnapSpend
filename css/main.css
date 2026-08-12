@@ -38,13 +38,25 @@
 }
 
 /* Base typography + theme-aware body */
+html {
+  overscroll-behavior-y: none;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: #f6f7fb;
   color: #0f172a;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
   transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+@supports not (overscroll-behavior-y: none) {
+  html,
+  body {
+    -ms-scroll-chaining: none;
+  }
 }
 
 .dark body {
@@ -167,6 +179,11 @@ body {
   padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
 }
 
+/* Top safe area (notch/status bar) for the sticky header in installed/PWA mode */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
 /* ==== Bottom navigation (docked bar, all screen sizes) ==== */
 .bottom-nav-inner {
   display: flex;
@@ -256,9 +273,6 @@ body {
 
 /* Custom responsiveness rules */
 @media (max-width: 640px) {
-  .logo-subtitle {
-    display: none !important;
-  }
   .bottom-nav-label {
     display: none !important;
   }
@@ -270,6 +284,12 @@ body {
   input, select, textarea {
     font-size: 16px !important;
   }
+}
+
+/* Lock page scroll while the assistant chat is open so only the message pane
+   scrolls on phones (prevents the whole chatbox from being draggable). */
+html.assistant-locked {
+  overflow: hidden;
 }
 
 /* SVG pie chart slices */

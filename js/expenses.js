@@ -250,17 +250,17 @@ function buildItemRowHTML(row, { showVendor = true, indentClass = 'pl-4' } = {})
 
     const actions = isItemRow
         ? `
-            <button data-edit-receipt-item-id="${safeEscape(row.itemId)}" data-parent-expense-id="${row.expenseId}" class="p-2 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" title="Edit Item">
+            <button data-edit-receipt-item-id="${safeEscape(row.itemId)}" data-parent-expense-id="${row.expenseId}" class="p-2 sm:p-2 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" title="Edit Item">
                 <i data-lucide="edit-2" class="w-5 h-5"></i>
             </button>
-            <button data-delete-receipt-item-id="${safeEscape(row.itemId)}" data-parent-expense-id="${row.expenseId}" class="p-2 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" title="Delete Item">
+            <button data-delete-receipt-item-id="${safeEscape(row.itemId)}" data-parent-expense-id="${row.expenseId}" class="p-2 sm:p-2 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" title="Delete Item">
                 <i data-lucide="trash-2" class="w-5 h-5"></i>
             </button>`
         : `
-            <button data-edit-expense-id="${row.expenseId}" class="p-2 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" title="Edit Expense">
+            <button data-edit-expense-id="${row.expenseId}" class="p-2 sm:p-2 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" title="Edit Expense">
                 <i data-lucide="edit-2" class="w-5 h-5"></i>
             </button>
-            <button data-delete-expense-id="${row.expenseId}" class="p-2 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" title="Delete Expense">
+            <button data-delete-expense-id="${row.expenseId}" class="p-2 sm:p-2 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" title="Delete Expense">
                 <i data-lucide="trash-2" class="w-5 h-5"></i>
             </button>`;
 
@@ -277,7 +277,7 @@ function buildItemRowHTML(row, { showVendor = true, indentClass = 'pl-4' } = {})
             data-item-cat-name="${safeEscape(row.categoryName || '')}"
             data-text-note="${safeEscape(searchableText)}"
             data-text-amount="${row.amount || 0}">
-            <td class="p-3.5 ${indentClass}">
+            <td class="p-3 sm:p-3.5 ${indentClass} min-w-0">
                 <div class="flex items-center gap-2">
                     <i data-lucide="${isItemRow ? 'package' : 'receipt'}" class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0"></i>
                     <div class="min-w-0">
@@ -288,13 +288,13 @@ function buildItemRowHTML(row, { showVendor = true, indentClass = 'pl-4' } = {})
                     </div>
                 </div>
             </td>
-            <td class="p-3.5 font-mono font-bold text-rose-600 dark:text-rose-400 tabular">
+            <td class="p-3 sm:p-3.5 font-mono font-bold text-rose-600 dark:text-rose-400 tabular whitespace-nowrap text-right">
                 ${safeFormat(row.amount)}
             </td>
-            <td class="p-3.5 font-mono text-slate-500 dark:text-slate-400 hidden sm:table-cell tabular">
+            <td class="p-3 sm:p-3.5 font-mono text-slate-500 dark:text-slate-400 hidden sm:table-cell tabular">
                 ${safeEscape(row.date)}
             </td>
-            <td class="p-3.5 hidden md:table-cell">
+            <td class="p-3 sm:p-3.5 hidden md:table-cell">
                 ${(() => {
                     const catColor = getCategoryColor(row.categoryName || 'General');
                     return `<span class="px-2 py-0.5 rounded-full text-[11px] font-medium border inline-flex items-center gap-1.5" style="background-color: ${catColor}1a; color: ${catColor}; border-color: ${catColor}40">
@@ -303,7 +303,7 @@ function buildItemRowHTML(row, { showVendor = true, indentClass = 'pl-4' } = {})
                     </span>`;
                 })()}
             </td>
-            <td class="p-3.5 text-right pr-4">
+            <td class="p-3 sm:p-3.5 pl-1 sm:pl-2 pr-2 sm:pr-4 text-right">
                 <div class="inline-flex items-center gap-1">${actions}</div>
             </td>
         </tr>`;
@@ -345,7 +345,7 @@ function buildMerchantGroupsHTML(displayRows) {
     return groups.map(group => {
         const total = group.rows.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
         const entryCount = new Set(group.rows.map(r => r.expenseId)).size;
-        const memberRows = group.rows.map(r => buildItemRowHTML(r, { showVendor: false, indentClass: 'pl-10' })).join('');
+        const memberRows = group.rows.map(r => buildItemRowHTML(r, { showVendor: false, indentClass: 'pl-5 sm:pl-10' })).join('');
 
         return `
             <div class="merchant-group-element border-b border-slate-100 dark:border-slate-800" data-merchant-key="${safeEscape(group.key)}">
@@ -363,7 +363,14 @@ function buildMerchantGroupsHTML(displayRows) {
                     <div class="font-mono font-bold text-rose-600 dark:text-rose-400 tabular text-sm">${safeFormat(total)}</div>
                 </button>
                 <div class="merchant-group-body hidden overflow-x-auto">
-                    <table class="w-full text-left border-collapse text-[13px]">
+                    <table class="w-full table-fixed text-left border-collapse text-[13px]">
+                        <colgroup>
+                            <col />
+                            <col class="w-24 sm:w-28" />
+                            <col class="w-24 sm:w-28 hidden sm:table-column" />
+                            <col class="w-28 sm:w-32 hidden md:table-column" />
+                            <col class="w-24 sm:w-24" />
+                        </colgroup>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800">${memberRows}</tbody>
                     </table>
                 </div>
@@ -565,14 +572,14 @@ export async function render(container, selectedMonth) {
     <!-- Items View (default): one row per item, vendor mentioned -->
     <div id="exp-items-view">
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-[13px]" id="expense-main-table">
+            <table class="w-full table-fixed text-left border-collapse text-[13px]" id="expense-main-table">
                 <thead>
                     <tr class="bg-slate-50/80 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        <th class="p-3.5 pl-4">Item</th>
-                        <th class="p-3.5 w-28">Amount</th>
-                        <th class="p-3.5 w-28 hidden sm:table-cell">Date</th>
-                        <th class="p-3.5 w-32 hidden md:table-cell">Category</th>
-                        <th class="p-3.5 w-24 text-right pr-4">Actions</th>
+                        <th class="p-3 sm:p-3.5 pl-3 sm:pl-4">Item</th>
+                        <th class="p-3 sm:p-3.5 w-24 sm:w-28">Amount</th>
+                        <th class="p-3 sm:p-3.5 w-24 sm:w-28 hidden sm:table-cell">Date</th>
+                        <th class="p-3 sm:p-3.5 w-28 sm:w-32 hidden md:table-cell">Category</th>
+                        <th class="p-3 sm:p-3.5 w-24 sm:w-24 text-right pr-2 sm:pr-4">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-[13px]">
@@ -1163,7 +1170,7 @@ function openCsvImportModal(categories, selectedMonth, classifier) {
                     <h3 class="text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-none">Import Account CSV</h3>
                     <p class="text-slate-500 dark:text-slate-400 text-xs mt-1">Select a valid CSV file containing transaction statements. Map the primary columns below manually.</p>
                 </div>
-                <button type="button" id="btn-close-csv-import" class="shrink-0 p-2 -m-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer" aria-label="Close import dialog">
+                <button type="button" id="btn-close-csv-import" class="shrink-0 p-2.5 sm:p-2 -m-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer" aria-label="Close import dialog">
                     <i data-lucide="x" class="w-4 h-4"></i>
                 </button>
             </div>
@@ -1639,8 +1646,8 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
     const receiptTotalAmount = typeof ocrData.total_amount === 'number' ? ocrData.total_amount : 0;
 
     const html = `
-        <div class="space-y-4 select-none">
-            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="space-y-4 select-none flex-1 flex flex-col min-h-0">
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
                 <div class="flex items-center gap-3">
                     <div class="bg-brand-gradient p-2.5 rounded-xl text-white shadow-lg shadow-indigo-500/30">
                         <i data-lucide="receipt" class="w-5 h-5"></i>
@@ -1655,7 +1662,7 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
                 </span>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shrink-0">
                 <div>
                     <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Vendor / Store</label>
                     <input type="text" id="itemized-merchant" value="${escapeHTML(merchantName)}" placeholder="Vendor Name" class="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-brand-500" />
@@ -1670,17 +1677,17 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
                 </div>
             </div>
 
-            <div id="itemized-mismatch-banner" class="hidden p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300 rounded-xl text-xs font-medium flex items-center gap-2">
+            <div id="itemized-mismatch-banner" class="hidden p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300 rounded-xl text-xs font-medium flex items-center gap-2 shrink-0">
                 <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 shrink-0"></i>
                 <span id="itemized-mismatch-text">Itemized total does not match receipt total. Please review extracted items.</span>
             </div>
 
-            <div class="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-                <div class="max-h-[320px] overflow-y-auto overflow-x-hidden scrollbar-thin">
-                    <table class="w-full table-fixed text-left border-collapse text-xs">
+            <div class="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col min-h-0 flex-1 sm:flex-none">
+                <div id="itemized-items-scroll" class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-thin sm:max-h-[320px]">
+                    <table class="w-full table-fixed text-left border-collapse text-xs hidden sm:table">
                         <thead class="sticky top-0 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                             <tr>
-                                <th class="p-2.5 pl-3">Item Description</th>
+                                <th class="p-2.5 pl-3 w-[30%]">Item Description</th>
                                 <th class="p-2.5 w-12 sm:w-14 text-center">Qty</th>
                                 <th class="p-2.5 w-24 text-right">Line Price (€)</th>
                                 <th class="p-2.5 w-36 sm:w-44">Category Tag</th>
@@ -1690,8 +1697,9 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
                         <tbody id="itemized-rows-body" class="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900/50">
                         </tbody>
                     </table>
+                    <div id="itemized-rows-cards" class="sm:hidden divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900/50"></div>
                 </div>
-                <div class="p-3 bg-slate-50 dark:bg-slate-900/60 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-2">
+                <div class="p-3 bg-slate-50 dark:bg-slate-900/60 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0">
                     <button type="button" id="btn-add-item-row" class="px-3.5 py-1.5 bg-brand-50 dark:bg-brand-950/50 hover:bg-brand-100 dark:hover:bg-brand-900/50 text-brand-700 dark:text-brand-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all border border-brand-200/70 dark:border-brand-900/60 cursor-pointer">
                         <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Line Item
                     </button>
@@ -1708,7 +1716,7 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
                 </div>
             </div>
 
-            <div class="flex items-center justify-between pt-2">
+            <div class="flex items-center justify-between pt-2 shrink-0">
                 <button type="button" id="btn-cancel-itemized" class="px-4 py-2.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer">
                     Cancel
                 </button>
@@ -1723,44 +1731,82 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
         attachDatePicker(document.getElementById('itemized-date'));
         const body = document.getElementById('itemized-rows-body');
         let currentItems = [...items];
-        const itemCatDropdowns = {};
+        let itemCatDropdowns = {};
+
+        const fieldInputClasses = 'w-full border border-slate-200 dark:border-slate-700 rounded-lg text-xs outline-none focus:border-brand-500 bg-white dark:bg-slate-900/70 text-slate-900 dark:text-slate-100';
+        const fieldLabelClasses = 'block text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1';
+
+        const itemRowHTML = (it, index) => `
+            <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-all" data-item-index="${index}">
+                <td class="p-2 pl-3 min-w-0">
+                    <input type="text" data-field="item_name" value="${escapeHTML(it.item_name)}" placeholder="Item description" class="w-full min-w-0 px-2 py-1 ${fieldInputClasses} font-medium" />
+                </td>
+                <td class="p-2">
+                    <input type="number" min="1" step="1" data-field="quantity" value="${it.quantity}" class="no-spinner w-full min-w-0 px-1.5 py-1 ${fieldInputClasses} font-mono text-center" />
+                </td>
+                <td class="p-2">
+                    <input type="number" min="0" step="0.01" data-field="price" value="${parseFloat(it.price || 0).toFixed(2)}" class="no-spinner w-full min-w-0 px-2 py-1 ${fieldInputClasses} font-mono text-right" />
+                </td>
+                <td class="p-2">
+                    <div class="item-cat-wrap min-w-0" data-row-index="${index}"></div>
+                </td>
+                <td class="p-2 text-center">
+                    <button type="button" data-delete-row="${index}" class="p-1.5 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" aria-label="Remove line item">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+
+        const itemCardHTML = (it, index) => `
+            <div class="p-3 space-y-2" data-item-index="${index}">
+                <div class="flex items-start gap-2">
+                    <div class="flex-1 min-w-0">
+                        <label class="${fieldLabelClasses}">Item Description</label>
+                        <input type="text" data-field="item_name" value="${escapeHTML(it.item_name)}" placeholder="Item description" class="w-full px-2.5 py-2 ${fieldInputClasses} font-medium" />
+                    </div>
+                    <button type="button" data-delete-row="${index}" class="mt-5 p-2.5 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all shrink-0" aria-label="Remove line item">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="${fieldLabelClasses}">Qty</label>
+                        <input type="number" min="1" step="1" data-field="quantity" value="${it.quantity}" class="no-spinner w-full px-2.5 py-2 ${fieldInputClasses} font-mono" />
+                    </div>
+                    <div>
+                        <label class="${fieldLabelClasses}">Line Price (€)</label>
+                        <input type="number" min="0" step="0.01" data-field="price" value="${parseFloat(it.price || 0).toFixed(2)}" class="no-spinner w-full px-2.5 py-2 ${fieldInputClasses} font-mono" />
+                    </div>
+                </div>
+                <div>
+                    <label class="${fieldLabelClasses}">Category Tag</label>
+                    <div class="item-cat-wrap min-w-0" data-row-index="${index}"></div>
+                </div>
+            </div>
+        `;
 
         const renderRows = () => {
-            body.innerHTML = currentItems.map((it, index) => {
-                return `
-                    <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-all" data-item-index="${index}">
-                        <td class="p-2 pl-3 min-w-0">
-                            <input type="text" data-field="item_name" value="${escapeHTML(it.item_name)}" placeholder="Item description" class="w-full min-w-0 px-2 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-800 dark:text-slate-200 outline-none focus:border-brand-500 bg-white dark:bg-slate-900/70" />
-                        </td>
-                        <td class="p-2">
-                            <input type="number" min="1" step="1" data-field="quantity" value="${it.quantity}" class="no-spinner w-full min-w-0 px-1.5 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono text-center outline-none focus:border-brand-500 bg-white dark:bg-slate-900/70 text-slate-900 dark:text-slate-100" />
-                        </td>
-                        <td class="p-2">
-                            <input type="number" min="0" step="0.01" data-field="price" value="${parseFloat(it.price || 0).toFixed(2)}" class="no-spinner w-full min-w-0 px-2 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono text-right outline-none focus:border-brand-500 bg-white dark:bg-slate-900/70 text-slate-900 dark:text-slate-100" />
-                        </td>
-                        <td class="p-2">
-                            <div class="item-cat-wrap min-w-0" data-row-index="${index}"></div>
-                        </td>
-                        <td class="p-2 text-center">
-                            <button type="button" data-delete-row="${index}" class="p-1.5 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all">
-                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+            body.innerHTML = currentItems.map((it, index) => itemRowHTML(it, index)).join('');
+            const cardsEl = document.getElementById('itemized-rows-cards');
+            if (cardsEl) cardsEl.innerHTML = currentItems.map((it, index) => itemCardHTML(it, index)).join('');
 
             Object.keys(itemCatDropdowns).forEach((k) => itemCatDropdowns[k].destroy());
-            body.querySelectorAll('.item-cat-wrap').forEach((wrap) => {
+            itemCatDropdowns = {};
+            const scrollContainer = document.getElementById('itemized-items-scroll') || body;
+            scrollContainer.querySelectorAll('.item-cat-wrap').forEach((wrap) => {
                 const index = parseInt(wrap.getAttribute('data-row-index'), 10);
+                // Dropdowns live in BOTH the desktop table and the mobile cards.
+                // Key them by medium so edits and saves always read the visible one.
+                const medium = wrap.closest('#itemized-rows-body') ? 'table' : 'card';
                 const canonicalTag = mapToCanonical(currentItems[index]?.category || 'Miscellaneous');
-                itemCatDropdowns[index] = createThemedDropdown({
+                itemCatDropdowns[`${medium}-${index}`] = createThemedDropdown({
                     options: CANONICAL_CATEGORIES.map(cat => ({ value: cat, label: cat, color: getCategoryColor(cat) })),
                     value: canonicalTag,
                     size: 'sm',
                     variant: 'brand',
                 });
-                wrap.appendChild(itemCatDropdowns[index].el);
+                wrap.appendChild(itemCatDropdowns[`${medium}-${index}`].el);
             });
 
             if (window.lucide) window.lucide.createIcons();
@@ -1770,11 +1816,12 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
 
         const updateCalculations = () => {
             let sum = 0;
-            const rows = body.querySelectorAll('tr');
-            rows.forEach(tr => {
-                const priceInput = tr.querySelector('[data-field="price"]');
-                const price = parseFloat(priceInput ? priceInput.value : 0) || 0;
-                sum += price;
+            const isDesktop = window.matchMedia('(min-width: 640px)').matches;
+            const priceInputs = isDesktop
+                ? document.querySelectorAll('#itemized-rows-body [data-field="price"]')
+                : document.querySelectorAll('#itemized-rows-cards [data-field="price"]');
+            priceInputs.forEach(priceInput => {
+                sum += parseFloat(priceInput ? priceInput.value : 0) || 0;
             });
 
             document.getElementById('disp-itemized-sum').textContent = `€${sum.toFixed(2)}`;
@@ -1791,12 +1838,13 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
         };
 
         const attachRowListeners = () => {
-            body.querySelectorAll('input').forEach(input => {
+            const scope = document.getElementById('itemized-items-scroll') || body;
+            scope.querySelectorAll('input').forEach(input => {
                 input.addEventListener('input', updateCalculations);
                 input.addEventListener('change', updateCalculations);
             });
 
-            body.querySelectorAll('[data-delete-row]').forEach(btn => {
+            scope.querySelectorAll('[data-delete-row]').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const index = parseInt(btn.getAttribute('data-delete-row'), 10);
                     currentItems.splice(index, 1);
@@ -1827,17 +1875,21 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
         return;
     }
 
-    // Collect extracted line items from the modal table
+    // Collect extracted line items from whichever row medium is visible
     const lineItems = [];
     let calculatedTotal = 0;
 
-    const rows = document.querySelectorAll('#itemized-rows-body tr');
-    rows.forEach(tr => {
-        const nameInput = tr.querySelector('[data-field="item_name"]');
-        const qtyInput = tr.querySelector('[data-field="quantity"]');
-        const priceInput = tr.querySelector('[data-field="price"]');
-        const rowIndex = parseInt(tr.getAttribute('data-item-index'), 10);
-        const catDropdown = itemCatDropdowns[rowIndex];
+    const isDesktop = window.matchMedia('(min-width: 640px)').matches;
+    const catKeyPrefix = isDesktop ? 'table' : 'card';
+    const rowEls = isDesktop
+        ? document.querySelectorAll('#itemized-rows-body tr')
+        : document.querySelectorAll('#itemized-rows-cards [data-item-index]');
+    rowEls.forEach(rowEl => {
+        const nameInput = rowEl.querySelector('[data-field="item_name"]');
+        const qtyInput = rowEl.querySelector('[data-field="quantity"]');
+        const priceInput = rowEl.querySelector('[data-field="price"]');
+        const rowIndex = parseInt(rowEl.getAttribute('data-item-index'), 10);
+        const catDropdown = itemCatDropdowns[`${catKeyPrefix}-${rowIndex}`];
 
         const name = nameInput ? nameInput.value.trim() : '';
         const qty = parseFloat(qtyInput ? qtyInput.value : 1) || 1;
@@ -1954,7 +2006,7 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
     }
 });
         renderRows();
-    }, { widthClass: 'sm:max-w-2xl' });
+    }, { widthClass: 'sm:max-w-2xl', sheet: true });
 }
 
 /**

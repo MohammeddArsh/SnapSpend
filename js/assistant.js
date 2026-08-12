@@ -1,14 +1,11 @@
-import { supabase, getSupabaseUrl } from './supabase.js';
 import { currentUser } from './app.js';
 import { escapeHTML, formatCurrency } from './utils.js';
+import { askAssistantClient } from './assistantClient.js';
 
 const SUGGESTED_QUESTIONS = [
     "How much did I spend on Groceries this month?",
     "What was my biggest single expense this year?",
-    "Show my spending per category this month",
-    "Which pharmacy purchases were the most expensive?",
-    "How much did I spend on Travel in total?",
-    "What is my average daily spending this month?"
+    "Show my spending per category this month"
 ];
 
 let messages = [];
@@ -18,41 +15,51 @@ let chatHeightEl = null;
 function applyChatHeight() {
     if (!chatHeightEl || !chatHeightEl.isConnected) return;
     const vv = window.visualViewport;
-    if (vv && vv.width && vv.width < 768) {
-        chatHeightEl.style.height = `${Math.max(vv.height - vv.offsetTop - 140, 340)}px`;
-    } else {
-        chatHeightEl.style.height = '';
-    }
+    const viewportH = (vv && vv.height) ? vv.height : window.innerHeight;
+    const top = chatHeightEl.getBoundingClientRect().top;
+    const main = chatHeightEl.closest('main');
+    const mainBottomPad = main ? parseFloat(getComputedStyle(main).paddingBottom) || 0 : 0;
+    const bodyBottomPad = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
+    const gap = 8;
+    const h = viewportH - top - mainBottomPad - bodyBottomPad - gap;
+    // No arbitrary floor: if the available space is tiny (small phone, open
+    // keyboard) the shell shrinks to fit instead of spilling a dead zone that
+    // makes the page itself scroll. Only the messages pane scrolls (the shell
+    // itself is overflow-hidden).
+    const safe = Math.max(h, 0);
+    chatHeightEl.style.height = `${safe}px`;
+    chatHeightEl.style.maxHeight = `${safe}px`;
 }
 
 if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', applyChatHeight);
-    window.visualViewport.addEventListener('scroll', applyChatHeight);
 }
+
+window.addEventListener('load', applyChatHeight);
 
 export async function render(container, selectedMonth) {
     if (!currentUser) return;
 
     container.innerHTML = `
-        <div id="assistant-chat" class="max-w-3xl mx-auto flex flex-col" style="height: calc(100vh - 190px); height: calc(100dvh - 190px); min-height: 420px;">
+        <div id="assistant-chat" class="max-w-3xl mx-auto flex flex-col overflow-hidden">
             <!-- Assistant Header -->
-            <div class="flex items-center gap-3 pb-4">
+            <div class="flex items-center gap-3 pb-3">
                 <div class="bg-brand-gradient p-2.5 rounded-xl text-white shadow-lg shadow-indigo-500/30">
                     <i data-lucide="bot" class="w-5 h-5"></i>
                 </div>
                 <div>
                     <h2 class="text-xl font-black tracking-tight text-slate-900 dark:text-white leading-none">AI Expense Assistant</h2>
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Ask questions about your spending — answered directly from your database.</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Ask anything about your spending.</p>
                 </div>
             </div>
 
             <!-- Messages Area -->
-            <div id="assistant-messages" class="flex-1 overflow-y-auto space-y-3 pr-1 pb-3 rounded-2xl scrollbar-thin"></div>
+            <div id="assistant-messages" class="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-3 pr-1 pb-3 rounded-2xl scrollbar-thin"></div>
 
             <!-- Suggested Questions (hidden once chatting) -->
-            <div id="assistant-suggestions" class="flex flex-wrap gap-2 pb-3">
+            <div id="assistant-suggestions" class="flex flex-wrap gap-2 pb-2">
                 ${SUGGESTED_QUESTIONS.map(q => `
-                    <button class="suggestion-chip text-xs font-semibold text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50 hover:bg-brand-100 dark:hover:bg-brand-900/50 border border-brand-200/70 dark:border-brand-900/60 rounded-full px-4 py-2 transition-all cursor-pointer">
+                    <button class="suggestion-chip text-xs font-semibold text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50 hover:bg-brand-100 dark:hover:bg-brand-900/50 border border-brand-200/70 dark:border-brand-900/60 rounded-full px-3 py-1.5 transition-all cursor-pointer">
                         ${escapeHTML(q)}
                     </button>
                 `).join('')}
@@ -69,10 +76,17 @@ export async function render(container, selectedMonth) {
     `;
 
     chatHeightEl = container.querySelector('#assistant-chat');
+    window.scrollTo({ top: 0 });
     applyChatHeight();
 
     if (window.lucide) window.lucide.createIcons();
+    applyChatHeight();
     bindAssistantEvents();
+    if (messages.length > 0) {
+        document.getElementById('assistant-suggestions')?.classList.add('hidden');
+    }
+    renderPersistedMessages();
+    applyChatHeight();
 }
 
 function bindAssistantEvents() {
@@ -117,16 +131,20 @@ function bindAssistantEvents() {
     messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-function addUserMessage(question) {
-    messages.push({ role: 'user', content: question });
-    const el = document.getElementById('assistant-messages');
-    el.insertAdjacentHTML('beforeend', `
+function buildUserBubble(question) {
+    return `
         <div class="flex justify-end animate-fade-in">
             <div class="max-w-[85%] bg-brand-gradient text-white rounded-2xl rounded-br-md px-4 py-2.5 text-xs leading-relaxed shadow-lg shadow-indigo-500/25">
                 ${escapeHTML(question)}
             </div>
         </div>
-    `);
+    `;
+}
+
+function addUserMessage(question) {
+    messages.push({ role: 'user', content: question });
+    const el = document.getElementById('assistant-messages');
+    el.insertAdjacentHTML('beforeend', buildUserBubble(question));
     scrollToBottom();
 }
 
@@ -154,29 +172,10 @@ async function askAssistant(question) {
     addTypingIndicator();
 
     try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error("You are not signed in.");
-
-        const res = await fetch(`${getSupabaseUrl()}/functions/v1/assistant`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session.access_token}`
-            },
-            body: JSON.stringify({ question })
-        });
-
-        const data = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-            if (res.status === 404 || /not found/i.test(data.error || '')) {
-                throw new Error("The assistant backend is not deployed. Deploy it with: supabase functions deploy assistant");
-            }
-            throw new Error(data.error || `Assistant request failed (HTTP ${res.status}).`);
-        }
-
-        messages.push({ role: 'assistant', content: data.answer, sql: data.sql, rows: data.rows });
-        renderAssistantReply(data);
+        const result = await askAssistantClient(question);
+        if (result.error) throw new Error(result.error);
+        messages.push({ role: 'assistant', content: result.answer, rows: result.rows });
+        renderAssistantReply({ content: result.answer, rows: result.rows });
     } catch (err) {
         renderAssistantError(err.message);
     } finally {
@@ -186,16 +185,15 @@ async function askAssistant(question) {
     }
 }
 
-function renderAssistantReply(data) {
-    const el = document.getElementById('assistant-messages');
+function buildAssistantReply(data) {
     const rows = Array.isArray(data.rows) ? data.rows : [];
     const hasRows = rows.length > 0;
     const isTabular = hasRows && rows.length <= 50 && rows[0] && typeof rows[0] === 'object';
 
-    el.insertAdjacentHTML('beforeend', `
+    return `
         <div class="flex justify-start animate-fade-in">
             <div class="max-w-[95%] glass-surface dark:bg-slate-900/70 border border-slate-200/70 dark:border-slate-700/60 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm space-y-2.5">
-                <p class="text-xs leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-line">${escapeHTML(data.answer || 'Done.')}</p>
+                <p class="text-xs leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-line">${escapeHTML(data.content || 'Done.')}</p>
 
                 ${isTabular ? `
                     <details class="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 overflow-hidden">
@@ -220,19 +218,28 @@ function renderAssistantReply(data) {
                         </div>
                     </details>
                 ` : ''}
-
-                ${data.sql ? `
-                    <details class="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 overflow-hidden">
-                        <summary class="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-3 py-2 cursor-pointer select-none hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
-                            SQL used
-                        </summary>
-                        <pre class="px-3 pb-2.5 text-[11px] font-mono text-slate-500 dark:text-slate-400 overflow-x-auto whitespace-pre-wrap">${escapeHTML(data.sql)}</pre>
-                    </details>
-                ` : ''}
             </div>
         </div>
-    `);
+    `;
+}
+
+function renderAssistantReply(data) {
+    const el = document.getElementById('assistant-messages');
+    el.insertAdjacentHTML('beforeend', buildAssistantReply(data));
     scrollToBottom();
+}
+
+function renderPersistedMessages() {
+    const el = document.getElementById('assistant-messages');
+    if (!el) return;
+    el.innerHTML = '';
+    messages.forEach(m => {
+        if (m.role === 'user') {
+            el.insertAdjacentHTML('beforeend', buildUserBubble(m.content));
+        } else if (m.role === 'assistant') {
+            el.insertAdjacentHTML('beforeend', buildAssistantReply(m));
+        }
+    });
 }
 
 function renderAssistantError(message) {

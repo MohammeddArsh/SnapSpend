@@ -79,11 +79,11 @@ export async function render(container, selectedMonth) {
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                <th class="p-4">Source</th>
-                                <th class="p-4">Amount</th>
-                                <th class="p-4 hidden sm:table-cell">Date Credited</th>
-                                <th class="p-4 hidden md:table-cell">Note</th>
-                                <th class="p-4 text-right">Actions</th>
+                                <th class="p-3 sm:p-4">Source</th>
+                                <th class="p-3 sm:p-4">Amount</th>
+                                <th class="p-3 sm:p-4 hidden sm:table-cell">Date Credited</th>
+                                <th class="p-3 sm:p-4 hidden md:table-cell">Note</th>
+                                <th class="p-3 sm:p-4 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-[13px]">
@@ -99,19 +99,19 @@ export async function render(container, selectedMonth) {
                                  </tr>
                             ` : entries.map(entry => `
                                 <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-all">
-                                    <td class="p-4 font-semibold text-slate-800 dark:text-slate-200">
+                                    <td class="p-3 sm:p-4 font-semibold text-slate-800 dark:text-slate-200">
                                         ${escapeHTML(entry.income_sources?.name || 'Unassigned Source')}
                                         <span class="block sm:hidden text-[11px] font-mono text-slate-400 dark:text-slate-500 leading-none mt-1">${entry.date_credited}</span>
                                     </td>
-                                    <td class="p-4 font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular">${formatCurrency(entry.amount)}</td>
-                                    <td class="p-4 font-mono text-slate-500 dark:text-slate-400 hidden sm:table-cell tabular">${entry.date_credited}</td>
-                                    <td class="p-4 text-slate-400 dark:text-slate-500 hidden md:table-cell max-w-[200px] truncate" title="${escapeHTML(entry.note || '')}">${escapeHTML(entry.note || '—')}</td>
-                                    <td class="p-4 text-right">
+                                    <td class="p-3 sm:p-4 font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular">${formatCurrency(entry.amount)}</td>
+                                    <td class="p-3 sm:p-4 font-mono text-slate-500 dark:text-slate-400 hidden sm:table-cell tabular">${entry.date_credited}</td>
+                                    <td class="p-3 sm:p-4 text-slate-400 dark:text-slate-500 hidden md:table-cell max-w-[200px] truncate" title="${escapeHTML(entry.note || '')}">${escapeHTML(entry.note || '—')}</td>
+                                    <td class="p-3 sm:p-4 text-right">
                                         <div class="inline-flex items-center gap-1">
-                                            <button data-edit-id="${entry.id}" class="p-2 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all">
+                                            <button data-edit-id="${entry.id}" class="p-3 sm:p-2 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all">
                                                 <i data-lucide="edit-2" class="w-5 h-5"></i>
                                             </button>
-                                            <button data-delete-id="${entry.id}" class="p-2 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all">
+                                            <button data-delete-id="${entry.id}" class="p-3 sm:p-2 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all">
                                                 <i data-lucide="trash-2" class="w-5 h-5"></i>
                                             </button>
                                         </div>
