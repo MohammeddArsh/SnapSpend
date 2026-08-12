@@ -174,8 +174,9 @@ async function askAssistant(question) {
     try {
         const result = await askAssistantClient(question);
         if (result.error) throw new Error(result.error);
-        messages.push({ role: 'assistant', content: result.answer, rows: result.rows });
-        renderAssistantReply({ content: result.answer, rows: result.rows });
+        const replyData = { content: result.answer, rows: result.rows, toolRounds: result.toolRounds };
+        messages.push({ role: 'assistant', ...replyData });
+        renderAssistantReply(replyData);
     } catch (err) {
         renderAssistantError(err.message);
     } finally {
@@ -188,7 +189,10 @@ async function askAssistant(question) {
 function buildAssistantReply(data) {
     const rows = Array.isArray(data.rows) ? data.rows : [];
     const hasRows = rows.length > 0;
-    const isTabular = hasRows && rows.length <= 50 && rows[0] && typeof rows[0] === 'object';
+    // Only attach the raw-result table when a single tool call produced the
+    // answer; multi-round answers merge several queries and the table would
+    // mismatch (and mislead) the summary prose.
+    const isTabular = hasRows && (data.toolRounds ?? 1) === 1 && rows.length <= 50 && rows[0] && typeof rows[0] === 'object';
 
     return `
         <div class="flex justify-start animate-fade-in">

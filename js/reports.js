@@ -147,56 +147,116 @@ export async function render(container, selectedMonth) {
             insights
         } = data;
 
+        const monthLabel = getMonthName(selectedMonth);
+        const prevLabel = getMonthName(prevMonth);
+
         // Render Reports layout
         container.innerHTML = `
             <div class="space-y-6 animate-fade-in">
                 <!-- Header Titles & Download PDF Action -->
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                        <span class="text-xs uppercase font-semibold text-emerald-600 tracking-wider">MONTHLY LEDGER STATS</span>
-                        <h2 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Reports Analysis</h2>
-                        <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Aggregated finance snapshot scoped to ${getMonthName(selectedMonth)} in EUR (€)</p>
+                        <span class="text-[11px] uppercase font-black text-brand-600 dark:text-brand-400 tracking-widest">Monthly Ledger Report</span>
+                        <h2 class="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white">Reports Analysis</h2>
+                        <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Aggregated finance snapshot scoped to ${monthLabel} in EUR (€)</p>
                     </div>
-                    <button type="button" id="btn-download-pdf-report" class="self-start sm:self-auto px-3.5 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
-                        <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-400" id="pdf-download-icon"></i>
+                    <button type="button" id="btn-download-pdf-report" class="self-start sm:self-auto px-4 py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer">
+                        <i data-lucide="download" class="w-4 h-4" id="pdf-download-icon"></i>
                         <span id="pdf-download-btn-text">Download PDF</span>
                     </button>
                 </div>
 
-                <!-- Reports Month Summary Metrics List -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                    <div class="bento-card p-4">
-                        <span class="text-[9px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider block mb-0.5">Total Income</span>
-                        <span class="font-mono font-bold text-slate-800 dark:text-slate-100 text-base">${formatCurrency(totalIncome)}</span>
+                <!-- Net Savings Hero Banner -->
+                <div class="relative overflow-hidden rounded-3xl bg-brand-gradient text-white shadow-2xl shadow-indigo-500/30 p-6 sm:p-7">
+                    <div class="glow-orb w-40 h-40 bg-white/20 -top-16 -right-16"></div>
+                    <div class="glow-orb w-24 h-24 bg-fuchsia-400/40 -bottom-10 -left-10"></div>
+                    <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-5 select-none">
+                        <div>
+                            <span class="text-[11px] uppercase font-bold text-white/70 tracking-widest">Monthly Net Savings</span>
+                            <div class="text-3xl sm:text-4xl font-mono font-bold text-white tracking-tight tabular mt-1.5">${formatCurrency(savings)}</div>
+                            <p class="text-[11px] text-white/70 mt-1.5">Unallocated cash remaining after expenses in ${monthLabel}</p>
+                        </div>
+                        <div>
+                            <span class="text-[11px] text-white/70 uppercase font-semibold tracking-wider block">Savings Rate</span>
+                            <div class="text-3xl font-mono font-bold text-white tabular mt-1">${savingsRate.toFixed(0)}%</div>
+                        </div>
                     </div>
-                    <div class="bento-card p-4">
-                        <span class="text-[9px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider block mb-0.5">Total Expenses</span>
-                        <span class="font-mono font-bold text-rose-500 text-base">${formatCurrency(totalExpenses)}</span>
+                </div>
+
+                <!-- Reports Primary Metrics Bento Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bento-card bento-card-hover p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Total Income</span>
+                            <div class="bg-emerald-50 dark:bg-emerald-950/60 p-2 rounded-xl text-emerald-600 dark:text-emerald-400">
+                                <i data-lucide="trending-up" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+                        <div class="space-y-1.5">
+                            <span class="text-[11px] text-slate-400 dark:text-slate-500 uppercase tracking-wider block font-semibold">Credits for ${monthLabel}</span>
+                            <div class="text-2xl font-mono font-bold text-slate-900 dark:text-white leading-tight tabular">${formatCurrency(totalIncome)}</div>
+                            <div class="text-[11px] ${incPct >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'} font-semibold flex items-center gap-1 mt-2 pt-2.5 border-t border-slate-100 dark:border-slate-800">
+                                <i data-lucide="${incPct >= 0 ? 'arrow-up-right' : 'arrow-down-left'}" class="w-3 h-3"></i>
+                                <span>${incPct.toFixed(0)}% vs last month</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="bento-card p-4 bg-emerald-500/[0.03]">
-                        <span class="text-[9px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider block mb-0.5">Net Savings</span>
-                        <span class="font-mono font-bold text-slate-800 dark:text-slate-100 text-base">${formatCurrency(savings)}</span>
+
+                    <div class="bento-card bento-card-hover p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Total Expenses</span>
+                            <div class="bg-rose-50 dark:bg-rose-950/60 p-2 rounded-xl text-rose-600 dark:text-rose-400">
+                                <i data-lucide="trending-down" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+                        <div class="space-y-1.5">
+                            <span class="text-[11px] text-slate-400 dark:text-slate-500 uppercase tracking-wider block font-semibold">Outflows for ${monthLabel}</span>
+                            <div class="text-2xl font-mono font-bold text-slate-900 dark:text-white leading-tight tabular">${formatCurrency(totalExpenses)}</div>
+                            <div class="text-[11px] ${expPct <= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'} font-semibold flex items-center gap-1 mt-2 pt-2.5 border-t border-slate-100 dark:border-slate-800">
+                                <i data-lucide="${expPct <= 0 ? 'arrow-down-right' : 'arrow-up-left'}" class="w-3 h-3"></i>
+                                <span>${expPct.toFixed(0)}% vs last month</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="bento-card p-4 bg-emerald-500/[0.03]">
-                        <span class="text-[9px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider block mb-0.5">Savings Rate</span>
-                        <span class="font-mono font-bold text-emerald-600 text-base">${savingsRate.toFixed(0)}%</span>
+
+                    <div class="bento-card bento-card-hover p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Savings Rate</span>
+                            <div class="bg-amber-50 dark:bg-amber-950/60 p-2 rounded-xl text-amber-600 dark:text-amber-400">
+                                <i data-lucide="shield" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+                        <div class="space-y-1.5">
+                            <span class="text-[11px] text-slate-400 dark:text-slate-500 uppercase tracking-wider block font-semibold">Share of income kept this month</span>
+                            <div class="text-2xl font-mono font-bold text-slate-900 dark:text-white leading-tight tabular">${savingsRate.toFixed(0)}%</div>
+                            <div class="text-[11px] ${savPct >= 0 ? 'text-amber-700 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'} font-semibold flex items-center gap-1 mt-2 pt-2.5 border-t border-slate-100 dark:border-slate-800">
+                                <i data-lucide="${savPct >= 0 ? 'arrow-up-right' : 'arrow-down-left'}" class="w-3 h-3"></i>
+                                <span>${savPct.toFixed(0)}% vs last month</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Rule-Based Insights Box -->
                 ${insights.length === 0 ? '' : `
-                    <div class="bento-card p-5 space-y-3.5 border-l-4 border-l-emerald-500 select-none">
-                        <h4 class="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5 uppercase tracking-wider">
-                            <i data-lucide="sparkles" class="w-4 h-4 text-emerald-600"></i> Audit Insights
-                        </h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
+                    <div class="bento-card p-5 space-y-4">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                            <h4 class="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2">
+                                <span class="bg-brand-gradient-soft p-1.5 rounded-lg text-brand-600 dark:text-brand-400">
+                                    <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                                </span>
+                                Audit Insights
+                            </h4>
+                            <span class="text-[11px] font-mono text-slate-400 dark:text-slate-500">${insights.length} finding${insights.length === 1 ? '' : 's'}</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                             ${insights.map(item => {
                                 const isWarning = item.type === 'warning';
                                 const isSuccess = item.type === 'success';
                                 const badgeColor = isWarning ? 'bg-rose-50 text-rose-700' : isSuccess ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700';
 
                                 return `
-                                    <div class="flex items-start gap-2.5 p-3 rounded-xl border border-dotted border-slate-200 dark:border-slate-700">
+                                    <div class="flex items-start gap-2.5 p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/40">
                                         <div class="p-1 px-1.5 rounded-lg ${badgeColor} shrink-0">
                                             <i data-lucide="${item.icon}" class="w-3.5 h-3.5"></i>
                                         </div>
@@ -213,114 +273,143 @@ export async function render(container, selectedMonth) {
 
                     <!-- Month Income Breakdowns Table -->
                     <div class="bento-card overflow-hidden">
-                        <div class="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+                        <div class="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex items-center justify-between gap-2">
                             <h4 class="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">Incomes Ledger</h4>
+                            <span class="text-[11px] font-mono text-slate-400 dark:text-slate-500">${incomes.length} entries</span>
                         </div>
-                        <table class="w-full text-left border-collapse text-xs">
-                            <thead>
-                                <tr class="bg-slate-50/20 dark:bg-slate-800/20 border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                                    <th class="p-3">Source Name</th>
-                                    <th class="p-3">Date</th>
-                                    <th class="p-3 text-right">Amount</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                                 ${incomes.length === 0 ? `
-                                     <tr>
-                                         <td colspan="3" class="p-6 text-center text-slate-400">
-                                             <p class="font-medium text-slate-500 dark:text-slate-400 text-xs">No income entries logged this month.</p>
-                                             <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Log credits in the Income workspace to view reports here.</p>
-                                         </td>
-                                     </tr>
-                                ` : incomes.map(item => `
-                                    <tr class="hover:bg-slate-50/30 dark:hover:bg-slate-800/30 transition-all">
-                                        <td class="p-3 font-semibold text-slate-800 dark:text-slate-200">${escapeHTML(item.income_sources?.name || 'Unassigned')}</td>
-                                        <td class="p-3 font-mono text-slate-500 dark:text-slate-400">${item.date_credited}</td>
-                                        <td class="p-3 font-mono text-right font-bold text-emerald-600">${formatCurrency(item.amount)}</td>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-[13px]">
+                                <thead>
+                                    <tr class="bg-slate-50/80 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                        <th class="p-3 sm:p-3.5 pl-3 sm:pl-4">Source Name</th>
+                                        <th class="p-3 sm:p-3.5">Date</th>
+                                        <th class="p-3 sm:p-3.5 pr-3 sm:pr-4 text-right">Amount</th>
                                     </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                                     ${incomes.length === 0 ? `
+                                         <tr>
+                                             <td colspan="3" class="p-10 text-center">
+                                                 <div class="bg-slate-50 dark:bg-slate-800/60 w-14 h-14 rounded-2xl text-slate-300 dark:text-slate-600 flex items-center justify-center mx-auto mb-3">
+                                                     <i data-lucide="banknote" class="w-6 h-6"></i>
+                                                 </div>
+                                                 <p class="font-medium text-slate-500 dark:text-slate-400 text-sm">No income entries logged this month.</p>
+                                                 <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Log credits in the Income workspace to view them here.</p>
+                                             </td>
+                                         </tr>
+                                    ` : incomes.map(item => `
+                                        <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
+                                            <td class="p-3 sm:p-3.5 pl-3 sm:pl-4 font-semibold text-slate-800 dark:text-slate-200">${escapeHTML(item.income_sources?.name || 'Unassigned')}</td>
+                                            <td class="p-3 sm:p-3.5 font-mono text-xs text-slate-500 dark:text-slate-400">${item.date_credited}</td>
+                                            <td class="p-3 sm:p-3.5 pr-3 sm:pr-4 font-mono text-right font-bold text-emerald-600 dark:text-emerald-500 tabular">${formatCurrency(item.amount)}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
                     <!-- Month Expenses Breakdowns Percentage Table -->
                     <div class="bento-card overflow-hidden">
-                        <div class="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+                        <div class="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex items-center justify-between gap-2">
                             <h4 class="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">Expense Classes Breakdown</h4>
+                            <span class="text-[11px] font-mono text-slate-400 dark:text-slate-500">${categories.length} classes</span>
                         </div>
-                        <table class="w-full text-left border-collapse text-xs">
-                            <thead>
-                                <tr class="bg-slate-50/20 dark:bg-slate-800/20 border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                                    <th class="p-3">Category Class</th>
-                                    <th class="p-3">Relative Weight %</th>
-                                    <th class="p-3 text-right">Amount Outlay</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                                 ${categories.length === 0 ? `
-                                     <tr>
-                                         <td colspan="3" class="p-6 text-center text-slate-400">
-                                             <p class="font-medium text-slate-500 dark:text-slate-400 text-xs">No expense entries logged this month.</p>
-                                             <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Record outflows in the Expenses workspace to view breakdowns.</p>
-                                         </td>
-                                     </tr>
-                                ` : categories.map(cat => {
-                                    return `
-                                        <tr class="hover:bg-slate-50/30 dark:hover:bg-slate-800/30 transition-all">
-                                            <td class="p-3 font-sans font-semibold text-slate-800 dark:text-slate-200">
-                                                <span class="inline-block w-2.5 h-2.5 rounded-full mr-2 align-middle" style="background-color: ${cat.color}"></span>
-                                                ${escapeHTML(cat.name)}
-                                            </td>
-                                            <td class="p-3 font-mono text-slate-500 dark:text-slate-400 font-bold">${cat.percent.toFixed(0)}%</td>
-                                            <td class="p-3 font-mono text-right font-bold text-rose-500">${formatCurrency(cat.amount)}</td>
-                                        </tr>
-                                    `;
-                                }).join('')}
-                            </tbody>
-                        </table>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-[13px]">
+                                <thead>
+                                    <tr class="bg-slate-50/80 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                        <th class="p-3 sm:p-3.5 pl-3 sm:pl-4">Category Class</th>
+                                        <th class="p-3 sm:p-3.5">Weight %</th>
+                                        <th class="p-3 sm:p-3.5 pr-3 sm:pr-4 text-right">Amount Outlay</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                                     ${categories.length === 0 ? `
+                                         <tr>
+                                             <td colspan="3" class="p-10 text-center">
+                                                 <div class="bg-slate-50 dark:bg-slate-800/60 w-14 h-14 rounded-2xl text-slate-300 dark:text-slate-600 flex items-center justify-center mx-auto mb-3">
+                                                     <i data-lucide="receipt" class="w-6 h-6"></i>
+                                                 </div>
+                                                 <p class="font-medium text-slate-500 dark:text-slate-400 text-sm">No expense entries logged this month.</p>
+                                                 <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Record outflows in the Expenses workspace to view breakdowns.</p>
+                                             </td>
+                                         </tr>
+                                    ` : categories.map(cat => {
+                                        return `
+                                            <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
+                                                <td class="p-3 sm:p-3.5 pl-3 sm:pl-4 font-sans font-semibold text-slate-800 dark:text-slate-200">${escapeHTML(cat.name)}</td>
+                                                <td class="p-3 sm:p-3.5 font-mono text-xs text-slate-500 dark:text-slate-400 font-bold tabular">
+                                                    <span class="inline-block w-2 h-2 rounded-full align-middle mr-1.5" style="background-color: ${cat.color}"></span>
+                                                    ${cat.percent.toFixed(0)}%
+                                                </td>
+                                                <td class="p-3 sm:p-3.5 pr-3 sm:pr-4 font-mono text-right font-bold text-rose-500 dark:text-rose-400 tabular">${formatCurrency(cat.amount)}</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
                 </div>
 
                 <!-- MoM Comparison Matrix -->
-                <div class="bento-card p-5 space-y-4 bg-gradient-to-br from-white to-slate-50 dark:from-slate-800/20 dark:to-slate-900/40 hover:border-slate-200 dark:hover:border-slate-700 transition-all select-none">
-                    <div>
-                        <h4 class="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-1.5 uppercase tracking-wider">
-                            <i data-lucide="bar-chart-3" class="w-4 h-4 text-emerald-600"></i> MoM Comparison Matrix
-                        </h4>
-                        <p class="text-[10px] text-slate-400 dark:text-slate-500 leading-tight">Variance review comparing ${getMonthName(selectedMonth)} against ${getMonthName(prevMonth)}</p>
+                <div class="bento-card p-5 sm:p-6 space-y-4">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 gap-2 flex-wrap">
+                        <div class="flex items-center gap-2">
+                            <span class="bg-brand-gradient-soft p-2 rounded-xl text-brand-600 dark:text-brand-400">
+                                <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                            </span>
+                            <div>
+                                <h4 class="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">MoM Comparison Matrix</h4>
+                                <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Variance review comparing ${monthLabel} against ${prevLabel}</p>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-                        <div class="p-3 bg-white dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 rounded-xl flex items-center justify-between">
-                            <div>
-                                <span class="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wider">MoM Incomes change</span>
-                                <div class="font-mono font-bold text-slate-800 dark:text-slate-200 text-sm mt-0.5">${formatCurrency(totalIncome)}</div>
+                        <div class="bento-card bento-card-hover p-4 flex items-center justify-between gap-3">
+                            <div class="min-w-0">
+                                <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Total Income</span>
+                                <div class="font-mono font-bold text-slate-900 dark:text-white text-xl mt-1 tabular">${formatCurrency(totalIncome)}</div>
                             </div>
-                            <span class="font-semibold text-xs px-2.5 py-1 rounded-full font-mono ${incPct >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}">
-                                ${incPct >= 0 ? '▲ +' : '▼ '}${incPct.toFixed(0)}%
-                            </span>
+                            <div class="text-right shrink-0">
+                                <span class="inline-flex items-center gap-1 font-semibold text-xs px-2.5 py-1 rounded-full font-mono ${incPct >= 0 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400'}">
+                                    <i data-lucide="${incPct >= 0 ? 'arrow-up-right' : 'arrow-down-left'}" class="w-3 h-3"></i>
+                                    ${incPct >= 0 ? '+' : ''}${incPct.toFixed(0)}%
+                                </span>
+                                <span class="text-[10px] text-slate-400 dark:text-slate-500 block mt-1">vs ${prevLabel}</span>
+                            </div>
                         </div>
 
-                        <div class="p-3 bg-white dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 rounded-xl flex items-center justify-between">
-                            <div>
-                                <span class="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wider">MoM Outflows change</span>
-                                <div class="font-mono font-bold text-slate-800 dark:text-slate-200 text-sm mt-0.5">${formatCurrency(totalExpenses)}</div>
+                        <div class="bento-card bento-card-hover p-4 flex items-center justify-between gap-3">
+                            <div class="min-w-0">
+                                <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Total Expenses</span>
+                                <div class="font-mono font-bold text-slate-900 dark:text-white text-xl mt-1 tabular">${formatCurrency(totalExpenses)}</div>
                             </div>
-                            <span class="font-semibold text-xs px-2.5 py-1 rounded-full font-mono ${expPct <= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}">
-                                ${expPct >= 0 ? '▲ +' : '▼ '}${expPct.toFixed(0)}%
-                            </span>
+                            <div class="text-right shrink-0">
+                                <span class="inline-flex items-center gap-1 font-semibold text-xs px-2.5 py-1 rounded-full font-mono ${expPct <= 0 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400'}">
+                                    <i data-lucide="${expPct <= 0 ? 'arrow-down-right' : 'arrow-up-left'}" class="w-3 h-3"></i>
+                                    ${expPct >= 0 ? '+' : ''}${expPct.toFixed(0)}%
+                                </span>
+                                <span class="text-[10px] text-slate-400 dark:text-slate-500 block mt-1">vs ${prevLabel}</span>
+                            </div>
                         </div>
 
-                        <div class="p-3 bg-white dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 rounded-xl flex items-center justify-between">
-                            <div>
-                                <span class="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wider">MoM Net Savings</span>
-                                <div class="font-mono font-bold text-slate-800 dark:text-slate-200 text-sm mt-0.5">${formatCurrency(savings)}</div>
+                        <div class="bento-card bento-card-hover p-4 flex items-center justify-between gap-3">
+                            <div class="min-w-0">
+                                <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Net Savings</span>
+                                <div class="font-mono font-bold text-slate-900 dark:text-white text-xl mt-1 tabular">${formatCurrency(savings)}</div>
                             </div>
-                            <span class="font-semibold text-xs px-2.5 py-1 rounded-full font-mono ${savPct >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}">
-                                ${savPct >= 0 ? '▲ +' : '▼ '}${savPct.toFixed(0)}%
-                            </span>
+                            <div class="text-right shrink-0">
+                                <span class="inline-flex items-center gap-1 font-semibold text-xs px-2.5 py-1 rounded-full font-mono ${savPct >= 0 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400'}">
+                                    <i data-lucide="${savPct >= 0 ? 'arrow-up-right' : 'arrow-down-left'}" class="w-3 h-3"></i>
+                                    ${savPct >= 0 ? '+' : ''}${savPct.toFixed(0)}%
+                                </span>
+                                <span class="text-[10px] text-slate-400 dark:text-slate-500 block mt-1">vs ${prevLabel}</span>
+                            </div>
                         </div>
 
                     </div>

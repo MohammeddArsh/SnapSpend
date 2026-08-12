@@ -126,8 +126,8 @@ SQL: SELECT c.name AS category, SUM(e.amount) AS total
      GROUP BY c.name
      ORDER BY total DESC
 
-Q: "What is my average daily spending this month?"
-SQL: SELECT SUM(e.amount) / COUNT(DISTINCT e.date) AS avg_daily_spend
+Q: "How much money did I spend in total this month?"
+SQL: SELECT SUM(e.amount) AS total
      FROM expense_entries e
      WHERE e.month = to_char(CURRENT_DATE, 'YYYY-MM')
 
@@ -139,11 +139,22 @@ SQL: SELECT e.amount, e.date, e.merchant, e.note
      ORDER BY e.amount DESC
      LIMIT 10
 
-ANSWER STYLE:
+Q: "How much money did I spend in total this month?"
+SQL: SELECT SUM(e.amount) AS total
+     FROM expense_entries e
+     WHERE e.month = to_char(CURRENT_DATE, 'YYYY-MM')
+
+ANSWER STYLE — PLAIN TEXT, no Markdown:
+- Write in plain conversational text. Never use Markdown symbols such as
+  asterisks (*), double asterisks (**), hashes (#), backticks, or bullet dashes.
+- For lists, use one item per line, e.g.:
+  Groceries: 58.98 EUR
+  Households: 7.65 EUR
 - Be concise and specific: state the numbers, dates and category names from the rows.
-- 1–3 short sentences is ideal; a short list is fine when it helps.
+- 1–3 short sentences is ideal; a short line list is fine when it helps.
 - Never mention the SQL or the tool unless the user asks.
-- Never explain your process. Answer directly.
+- Never explain your process or dump the raw result rows back into your answer.
+- Only ever summarize the figures the rows contain.
 `;
 
 export const QUERY_EXPENSES_TOOL = {

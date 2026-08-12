@@ -2,23 +2,37 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatCurrency, getMonthName } from './utils.js';
 
-const PADDING = 14;
+const MARGIN = 16;
 const PAGE_WIDTH = 210;
-const CONTENT_WIDTH = PAGE_WIDTH - PADDING * 2;
+const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
+const RIGHT = PAGE_WIDTH - MARGIN;
 
-const BRAND = '#6d47ff';
-const ROSE = '#f43f5e';
-const EMERALD = '#10b981';
-const SLATE_DARK = '#1e293b';
-const SLATE = '#64748b';
-const SLATE_LIGHT = '#94a3b8';
-const BORDER = '#e2e8f0';
+// Minimal clean palette. Colours are passed as hex strings only — jsPDF v4
+// rejects array colour arguments (throws "Invalid argument passed to jsPDF.f2").
+const INK = '#0f172a';
+const MUTED = '#64748b';
+const FAINT = '#94a3b8';
+const HAIRLINE = '#e2e8f0';
+const PANEL = '#f8fafc';
+const GOOD = '#059669';
+const BAD = '#e11d48';
 
 const FONT = 'helvetica';
+const LEDGER_CAP = 8;
+const LEGEND_CAP = 10;
+const LEGEND_ROW_H = 4.5;
 
 /**
- * Generates and downloads a vector PDF financial report from the shared
- * monthly report data (same aggregation as the Reports UI page).
+ * Formats a currency figure with a space between the symbol and the number
+ * so the euro sign doesn't butt against the digits in the PDF fonts.
+ */
+function money(amount) {
+    return formatCurrency(amount).replace(/^€/, '€ ');
+}
+
+/**
+ * Generates and downloads a clean, single-page vector PDF monthly report from
+ * the shared monthly report data (same aggregation as the Reports UI page).
  * @param {object} data Result of getMonthlyReportData()
  */
 export function generatePDFReport(data) {
@@ -34,193 +48,276 @@ export function generatePDFReport(data) {
         incPct,
         expPct,
         savPct,
-        categories,
-        insights
+        categories
     } = data;
 
     const monthLabel = getMonthName(selectedMonth);
-    const prevMonthLabel = getMonthName(prevMonth);
+    const prevLabel = getMonthName(prevMonth);
     const generatedAt = new Date().toLocaleString('en-IE', { dateStyle: 'medium', timeStyle: 'short' });
 
     // ===== Header =====
-    doc.setFillColor(139, 92, 246); // brand violet
-    doc.rect(0, 0, PAGE_WIDTH, 30, 'F');
-    doc.setFillColor(99, 102, 241);
-    doc.rect(0, 28, PAGE_WIDTH, 2, 'F');
+    drawHeader(doc, monthLabel, generatedAt);
 
-    doc.setTextColor(255, 255, 255);
-    doc.setFont(FONT, 'bold');
-    doc.setFontSize(20);
-    doc.text('SnapSpend', PADDING, 15);
-    doc.setFontSize(10);
-    doc.setFont(FONT, 'normal');
-    doc.text('Monthly Financial Report', PADDING, 23);
-    doc.text(monthLabel, PAGE_WIDTH - PADDING, 15, { align: 'right' });
-    doc.setFontSize(8);
-    doc.text(`Generated ${generatedAt}`, PAGE_WIDTH - PADDING, 22, { align: 'right' });
+    // ===== Net position panel =====
+    drawNetPanel(doc, savings, savingsRate, monthLabel);
 
-    let y = 46;
+    // ===== Key figures + month-over-month deltas =====
+    drawStats(doc, { totalIncome, totalExpenses, savingsRate, incPct, expPct, savPct }, prevLabel);
 
-    // ===== Summary metrics =====
-    y = sectionTitle(doc, y, 'Summary Snapshot');
-    const metrics = [
-        { label: 'Total Income', value: formatCurrency(totalIncome), color: EMERALD },
-        { label: 'Total Expenses', value: formatCurrency(totalExpenses), color: ROSE },
-        { label: 'Net Savings', value: formatCurrency(savings), color: SLATE_DARK },
-        { label: 'Savings Rate', value: `${savingsRate.toFixed(0)}%`, color: EMERALD }
-    ];
+    // ===== Ledgers (income / expenses, side by side) =====
+    const tableY = drawLedgers(doc, incomes, categories);
 
-    const boxW = (CONTENT_WIDTH - 3 * 4) / 4;
-    const boxH = 18;
-    metrics.forEach((m, i) => {
-        const x = PADDING + i * (boxW + 4);
-        doc.setDrawColor(BORDER);
-        doc.setFillColor(250, 250, 252);
-        doc.roundedRect(x, y, boxW, boxH, 2, 2, 'FD');
-        doc.setTextColor(SLATE);
-        doc.setFontSize(7);
-        doc.setFont(FONT, 'bold');
-        doc.text(m.label.toUpperCase(), x + 3, y + 6);
-        doc.setTextColor(...hexToRgb(m.color));
-        doc.setFontSize(12);
-        doc.setFont(FONT, 'bold');
-        doc.text(m.value, x + 3, y + 14);
-    });
-    y += boxH + 8;
-
-    // ===== Audit Insights =====
-    if (insights && insights.length > 0) {
-        y = sectionTitle(doc, y, 'Audit Insights');
-        const strip = insights.map(ins => ins.text.replace(/<[^>]+>/g, ''));
-        strip.forEach((text, i) => {
-            doc.setTextColor(SLATE_DARK);
-            doc.setFontSize(9);
-            const lines = doc.splitTextToSize(text, CONTENT_WIDTH - 6);
-            doc.text(lines, PADDING + 6, y + 4);
-            y += lines.length * 4 + 5;
-        });
-        y += 4;
-    }
-
-    // ===== Income ledger table =====
-    y = sectionTitle(doc, y, 'Incomes Ledger');
-    autoTable(doc, {
-        startY: y,
-        margin: { left: PADDING, right: PADDING },
-        head: [['Source Name', 'Date', 'Amount']],
-        body: incomes.length === 0
-            ? [['No income entries this month.', '', '']]
-            : incomes.map(item => [
-                item.income_sources?.name || 'Unassigned',
-                item.date_credited,
-                formatCurrency(item.amount)
-            ]),
-        theme: 'grid',
-        styles: { font: FONT, fontSize: 8, cellPadding: 2.5, textColor: SLATE_DARK, lineColor: BORDER, lineWidth: 0.2 },
-        headStyles: { fillColor: hexToRgb(SLATE_DARK), textColor: [255, 255, 255], fontStyle: 'bold' },
-        columnStyles: { 2: { halign: 'right', fontStyle: 'bold', textColor: hexToRgb(EMERALD) } }
-    });
-    y = doc.lastAutoTable.finalY + 8;
-
-    // ===== Expense category table =====
-    y = sectionTitle(doc, y, 'Expense Classes Breakdown');
-    const catBody = categories.length === 0
-        ? [['No expense entries this month.', '', '']]
-        : categories.map(cat => [cat.name, `${cat.percent.toFixed(1)}%`, formatCurrency(cat.amount)]);
-
-    autoTable(doc, {
-        startY: y,
-        margin: { left: PADDING, right: PADDING },
-        head: [['Category Class', 'Relative Weight %', 'Amount Outlay']],
-        body: catBody,
-        theme: 'grid',
-        styles: { font: FONT, fontSize: 8, cellPadding: 2.5, textColor: SLATE_DARK, lineColor: BORDER, lineWidth: 0.2 },
-        headStyles: { fillColor: hexToRgb(SLATE_DARK), textColor: [255, 255, 255], fontStyle: 'bold' },
-        columnStyles: { 1: { halign: 'center' }, 2: { halign: 'right', fontStyle: 'bold', textColor: hexToRgb(ROSE) } }
-    });
-    y = doc.lastAutoTable.finalY + 8;
-
-    // ===== MoM Comparison Matrix =====
-    y = ensureSpace(doc, y, 40);
-    y = sectionTitle(doc, y, 'MoM Comparison Matrix');
-    y += 2;
-    const rows = [
-        { label: 'Income', cur: totalIncome, prev: data.prevTotalIncome, pct: incPct, up: incPct >= 0 },
-        { label: 'Expenses', cur: totalExpenses, prev: data.prevTotalExpenses, pct: expPct, up: expPct <= 0 },
-        { label: 'Net Savings', cur: savings, prev: data.prevTotalIncome - data.prevTotalExpenses, pct: savPct, up: savPct >= 0 }
-    ];
-    rows.forEach(row => {
-        const x = PADDING;
-        const w = CONTENT_WIDTH;
-        doc.setDrawColor(BORDER);
-        doc.setFillColor(250, 250, 252);
-        doc.roundedRect(x, y, w, 12, 2, 2, 'FD');
-        doc.setTextColor(SLATE_DARK);
-        doc.setFont(FONT, 'bold');
-        doc.setFontSize(9);
-        doc.text(row.label, x + 4, y + 7.5);
-        doc.setFont(FONT, 'bold');
-        doc.setFontSize(10);
-        doc.text(formatCurrency(row.cur), x + w / 2 - 12, y + 7.5);
-        doc.setDrawColor(...hexToRgb(row.up ? EMERALD : ROSE));
-        doc.setFontSize(9);
-        doc.text(`${row.up ? '\u25B2 +' : '\u25BC '}${row.pct.toFixed(0)}%`, x + w - 4, y + 7.5, { align: 'right' });
-        y += 15;
-    });
-    y += 6;
-
-    // ===== Pie chart =====
-    y = ensureSpace(doc, y, 92);
-    y = sectionTitle(doc, y, 'Spending by Category');
-    y += 2;
-
-    if (categories.length === 0) {
-        doc.setTextColor(SLATE);
-        doc.setFont(FONT, 'normal');
-        doc.setFontSize(9);
-        doc.text('No expense categories to visualize.', PADDING, y + 20);
-    } else {
-        drawDonut(doc, categories, PADDING + 34, y + 34, 26);
-        drawDonutLegend(doc, categories, PADDING + 76, y + 8);
-    }
+    // ===== Spending donut + legend =====
+    drawSpending(doc, categories, tableY);
 
     // ===== Footer =====
-    const totalPages = doc.getNumberOfPages();
-    for (let i = 1; i <= totalPages; i += 1) {
-        doc.setPage(i);
-        doc.setFontSize(7);
-        doc.setFont(FONT, 'normal');
-        doc.setTextColor(SLATE_LIGHT);
-        doc.text(`SnapSpend — ${monthLabel} — Confidential`, PADDING, 290);
-        doc.text(`Page ${i} of ${totalPages}`, PAGE_WIDTH - PADDING, 290, { align: 'right' });
-    }
+    doc.setDrawColor(HAIRLINE);
+    doc.setLineWidth(0.4);
+    doc.line(MARGIN, 284, RIGHT, 284);
+    doc.setFont(FONT, 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(FAINT);
+    doc.text('SnapSpend — Confidential', MARGIN, 289);
+    doc.text(`Generated ${generatedAt}`, RIGHT, 289, { align: 'right' });
 
     doc.save(`SnapSpend-Report-${selectedMonth}.pdf`);
 }
 
-function sectionTitle(doc, y, title) {
-    doc.setTextColor(BRAND);
+function drawHeader(doc, monthLabel, generatedAt) {
+    // Logo mark: solid ink badge with a white S
+    doc.setFillColor(INK);
+    doc.roundedRect(MARGIN, 15, 5.5, 5.5, 1.2, 1.2, 'F');
+    doc.setTextColor('#ffffff');
     doc.setFont(FONT, 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(99, 102, 241);
-    doc.text(title.toUpperCase(), PADDING, y);
-    doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(0.3);
-    doc.line(PADDING, y + 2, PAGE_WIDTH - PADDING, y + 2);
-    return y + 7;
+    doc.setFontSize(9);
+    doc.text('S', MARGIN + 2.75, 19.7, { align: 'center' });
+
+    doc.setTextColor(INK);
+    doc.setFont(FONT, 'bold');
+    doc.setFontSize(12);
+    doc.text('SnapSpend', MARGIN + 9, 20);
+
+    doc.setTextColor(INK);
+    doc.setFont(FONT, 'bold');
+    doc.setFontSize(11);
+    doc.text(monthLabel, RIGHT, 20, { align: 'right' });
+
+    doc.setFont(FONT, 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(MUTED);
+    doc.text(`Generated ${generatedAt}`, RIGHT, 25.5, { align: 'right' });
+
+    doc.setDrawColor(HAIRLINE);
+    doc.setLineWidth(0.4);
+    doc.line(MARGIN, 32, RIGHT, 32);
 }
 
-function ensureSpace(doc, y, needed) {
-    if (y + needed > 275) {
-        doc.addPage();
-        return 32;
+function drawNetPanel(doc, savings, savingsRate, monthLabel) {
+    const y0 = 46;
+    const h = 24;
+
+    doc.setDrawColor(HAIRLINE);
+    doc.setFillColor(PANEL);
+    doc.setLineWidth(0.4);
+    doc.rect(MARGIN, y0, CONTENT_WIDTH, h, 'FD');
+
+    doc.setFont(FONT, 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(MUTED);
+    doc.text(`Net Savings · ${monthLabel}`.toUpperCase(), MARGIN + 6, y0 + 6);
+
+    doc.setFontSize(20);
+    doc.setTextColor(INK);
+    doc.text(money(savings), MARGIN + 6, y0 + 16);
+
+    doc.setFont(FONT, 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(MUTED);
+    doc.text('SAVINGS RATE', RIGHT - 6, y0 + 6, { align: 'right' });
+
+    doc.setFontSize(15);
+    doc.setTextColor(INK);
+    doc.text(`${savingsRate.toFixed(0)}%`, RIGHT - 6, y0 + 16, { align: 'right' });
+
+    doc.setFont(FONT, 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(MUTED);
+    doc.text('Share of income kept', RIGHT - 6, y0 + 20, { align: 'right' });
+}
+
+function drawStats(doc, data, prevLabel) {
+    const { totalIncome, totalExpenses, savingsRate, incPct, expPct, savPct } = data;
+    const y0 = 82;
+    const h = 22;
+    const cellW = CONTENT_WIDTH / 3;
+
+    doc.setDrawColor(HAIRLINE);
+    doc.setFillColor('#ffffff');
+    doc.setLineWidth(0.4);
+    doc.rect(MARGIN, y0, CONTENT_WIDTH, h, 'FD');
+
+    doc.setLineWidth(0.15);
+    for (let i = 1; i < 3; i += 1) {
+        const x = MARGIN + i * cellW;
+        doc.line(x, y0 + 3, x, y0 + h - 3);
     }
-    return y;
+
+    const cells = [
+        { label: 'Total Income', value: money(totalIncome), pct: incPct, goodOnPlus: true },
+        { label: 'Total Expenses', value: money(totalExpenses), pct: expPct, goodOnPlus: false },
+        { label: 'Savings Rate', value: `${savingsRate.toFixed(0)}%`, pct: savPct, goodOnPlus: true }
+    ];
+
+    cells.forEach((cell, i) => {
+        const x = MARGIN + i * cellW + 7;
+        doc.setFont(FONT, 'bold');
+        doc.setFontSize(7);
+        doc.setTextColor(MUTED);
+        doc.text(cell.label.toUpperCase(), x, y0 + 6);
+        doc.setFontSize(14);
+        doc.setTextColor(INK);
+        doc.text(cell.value, x, y0 + 13);
+        drawDelta(doc, x, y0 + 18, cell.pct, cell.goodOnPlus, prevLabel);
+    });
+}
+
+function drawDelta(doc, x, y, pct, goodOnPlus, prevLabel) {
+    const good = goodOnPlus ? pct >= 0 : pct <= 0;
+    const sign = pct >= 0 ? '+' : '-';
+    const text = `${sign}${Math.abs(pct).toFixed(0)}%`;
+
+    doc.setFont(FONT, 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(good ? GOOD : BAD);
+    doc.text(text, x, y);
+    const w = doc.getTextWidth(text);
+
+    doc.setFont(FONT, 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(MUTED);
+    doc.text(`vs ${prevLabel}`, x + w + 1.5, y);
+}
+
+const TABLE_STYLES = {
+    font: FONT,
+    fontSize: 7,
+    cellPadding: { top: 2, right: 4, bottom: 2, left: 4 },
+    textColor: INK,
+    lineColor: HAIRLINE,
+    lineWidth: 0.15,
+    valign: 'middle'
+};
+
+const TABLE_HEAD_STYLES = {
+    fillColor: '#ffffff',
+    textColor: MUTED,
+    fontStyle: 'bold',
+    fontSize: 6.5,
+    lineColor: '#cbd5e1',
+    lineWidth: 0.4
+};
+
+function drawLedgers(doc, incomes, categories) {
+    doc.setFont(FONT, 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(MUTED);
+    doc.text('INCOMES', MARGIN, 112);
+    doc.text('EXPENSES', RIGHT, 112, { align: 'right' });
+
+    const colW = (CONTENT_WIDTH - 4) / 2;
+    const rightStart = MARGIN + colW + 4;
+    const startY = 117;
+
+    // Income ledger
+    const incomeRows = (incomes || []).map(item => [
+        item.income_sources?.name || 'Unassigned',
+        formatShortDate(item.date_credited),
+        money(item.amount)
+    ]);
+    const { shown: incShown, extra: incExtra } = cap(incomeRows, LEDGER_CAP);
+
+    autoTable(doc, {
+        startY,
+        margin: { left: MARGIN, right: PAGE_WIDTH - MARGIN - colW },
+        head: [['Source', 'Date', 'Amount']],
+        body: incShown,
+        theme: 'grid',
+        styles: TABLE_STYLES,
+        headStyles: TABLE_HEAD_STYLES,
+        alternateRowStyles: { fillColor: '#ffffff' },
+        columnStyles: {
+            2: { halign: 'right', font: 'courier', fontStyle: 'bold', textColor: GOOD }
+        }
+    });
+    const incEnd = doc.lastAutoTable.finalY;
+
+    // Expense ledger
+    const catRows = (categories || []).map(cat => [
+        cat.name,
+        `${cat.percent.toFixed(1)}%`,
+        money(cat.amount)
+    ]);
+    const { shown: expShown, extra: expExtra } = cap(catRows, LEDGER_CAP);
+
+    autoTable(doc, {
+        startY,
+        margin: { left: rightStart, right: PAGE_WIDTH - rightStart - colW },
+        head: [['Category', 'Wt %', 'Amount']],
+        body: expShown,
+        theme: 'grid',
+        styles: TABLE_STYLES,
+        headStyles: TABLE_HEAD_STYLES,
+        alternateRowStyles: { fillColor: '#ffffff' },
+        columnStyles: {
+            1: { halign: 'right', font: 'courier' },
+            2: { halign: 'right', font: 'courier', fontStyle: 'bold', textColor: BAD }
+        }
+    });
+    const expEnd = doc.lastAutoTable.finalY;
+
+    if (incExtra > 0) {
+        doc.setFont(FONT, 'normal');
+        doc.setFontSize(6.5);
+        doc.setTextColor(MUTED);
+        doc.text(`+ ${incExtra} more income entries`, MARGIN, incEnd + 4);
+    }
+    if (expExtra > 0) {
+        doc.setFont(FONT, 'normal');
+        doc.setFontSize(6.5);
+        doc.setTextColor(MUTED);
+        doc.text(`+ ${expExtra} more categories`, rightStart, expEnd + 4);
+    }
+
+    return Math.max(incEnd, expEnd) + 10;
+}
+
+function drawSpending(doc, categories, y) {
+    // Keep the spending section at or below the page's vertical midpoint so the
+    // donut + list sits centred in the lower half instead of floating high.
+    y = Math.max(y, 140);
+
+    doc.setFont(FONT, 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(MUTED);
+    doc.text('SPENDING BY CATEGORY', MARGIN, y);
+    y += 6;
+
+    if (!categories || categories.length === 0) {
+        doc.setFont(FONT, 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(FAINT);
+        doc.text('No spending recorded for this month.', MARGIN, y + 20);
+        return;
+    }
+
+    const cx = MARGIN + 44;
+    const cy = y + 30;
+    drawDonut(doc, categories, cx, cy, 24);
+    drawLegend(doc, categories, PAGE_WIDTH / 2, y + 4);
 }
 
 /**
- * Draws the dashboard donut as vector circles using dashed strokes so the PDF
- * chart is visually identical (same strokeWidth thickness relative to radius).
+ * Donut chart drawn with dashed strokes (same technique as the dashboard).
  */
 function drawDonut(doc, categories, cx, cy, radius) {
     const total = categories.reduce((sum, c) => sum + c.amount, 0);
@@ -229,52 +326,77 @@ function drawDonut(doc, categories, cx, cy, radius) {
     let offset = 0;
     categories.forEach(cat => {
         const pct = (cat.amount / total) * 100;
-        doc.setDrawColor(...hexToRgb(cat.color));
-        doc.setLineWidth(5.4);
+        doc.setDrawColor(cat.color);
+        doc.setLineWidth(4.6);
         doc.setLineDashPattern([pct, 100 - pct], offset);
         doc.circle(cx, cy, radius, 'S');
         offset -= pct;
     });
     doc.setLineDashPattern([], 0);
 
-    // Center total
-    doc.setTextColor(SLATE);
     doc.setFont(FONT, 'bold');
     doc.setFontSize(6);
+    doc.setTextColor(MUTED);
     doc.text('Total Spent', cx, cy - 2, { align: 'center' });
-    doc.setTextColor(SLATE_DARK);
+    doc.setFont('courier', 'bold');
     doc.setFontSize(10);
-    doc.text(formatCurrency(total), cx, cy + 4, { align: 'center' });
+    doc.setTextColor(INK);
+    doc.text(money(total), cx, cy + 4, { align: 'center' });
 }
 
-function drawDonutLegend(doc, categories, x, topY) {
-    categories.forEach((cat, i) => {
-        const col = i % 2;
-        const row = Math.floor(i / 2);
-        const lx = x + col * 58;
-        const ly = topY + row * 12;
+/**
+ * Single-column legend in the right half of the page: one compact category per
+ * line, % and amount right-aligned to the page's right margin.
+ */
+function drawLegend(doc, categories, x, topY) {
+    const shown = categories.slice(0, LEGEND_CAP);
+    const amountRight = RIGHT;
+    const pctRight = amountRight - 36;
 
-        doc.setFillColor(...hexToRgb(cat.color));
-        doc.circle(lx, ly - 1, 1.4, 'F');
-        doc.setTextColor(SLATE_DARK);
+    shown.forEach((cat, i) => {
+        const ly = topY + i * LEGEND_ROW_H;
+
+        doc.setFillColor(cat.color);
+        doc.circle(x, ly - 1.2, 1.3, 'F');
+
         doc.setFont(FONT, 'bold');
-        doc.setFontSize(8);
-        doc.text(cat.name, lx + 3, ly);
+        doc.setFontSize(7.5);
+        doc.setTextColor(INK);
+        doc.text(truncate(cat.name, 11), x + 4, ly);
 
-        doc.setTextColor(SLATE);
         doc.setFont(FONT, 'normal');
-        doc.setFontSize(7);
-        doc.text(`${cat.percent.toFixed(1)}%`, lx + 3, ly + 3.6);
-        doc.setFont(FONT, 'bold');
-        doc.text(formatCurrency(cat.amount), lx + 40, ly, { align: 'right' });
+        doc.setFontSize(6.5);
+        doc.setTextColor(MUTED);
+        doc.text(`${cat.percent.toFixed(1)}%`, pctRight, ly, { align: 'right' });
+
+        doc.setFont('courier', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(INK);
+        doc.text(money(cat.amount), amountRight, ly, { align: 'right' });
     });
+
+    if (categories.length > LEGEND_CAP) {
+        doc.setFont(FONT, 'normal');
+        doc.setFontSize(6.5);
+        doc.setTextColor(MUTED);
+        doc.text(`+ ${categories.length - LEGEND_CAP} more`, x, topY + LEGEND_CAP * LEGEND_ROW_H + 3);
+    }
 }
 
-function hexToRgb(hex) {
-    const value = String(hex || '#64748b').replace('#', '');
-    return [
-        parseInt(value.substring(0, 2), 16),
-        parseInt(value.substring(2, 4), 16),
-        parseInt(value.substring(4, 6), 16)
-    ];
+function cap(rows, n) {
+    return rows.length <= n
+        ? { shown: rows, extra: 0 }
+        : { shown: rows.slice(0, n), extra: rows.length - n };
+}
+
+function formatShortDate(iso) {
+    if (!iso) return '';
+    const date = new Date(`${iso}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return iso;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function truncate(str, max) {
+    const s = String(str || '');
+    return s.length <= max ? s : `${s.slice(0, max - 3)}...`;
 }
