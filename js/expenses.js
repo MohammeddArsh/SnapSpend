@@ -5,6 +5,7 @@ import { NaiveBayesClassifier, classifyExpense, normalizeMerchantName } from './
 import { parseReceiptDirectly } from './parserEngine.js';
 import { CANONICAL_CATEGORIES, mapToCanonical, getCategoryColor } from './categories.js';
 import { createThemedDropdown } from './dropdown.js';
+import { attachDatePicker } from './datepicker.js';
 
 /** Live instance of the themed category filter dropdown (set per render). */
 let filterDropdownInstance = null;
@@ -1089,10 +1090,7 @@ function openExpenseModal(entry, categories, selectedMonth, classifier, training
 
                     setOcrStatus('✓ Receipt parsed! Opening Itemized Review...', 'success');
                     
-                    closeModal();
-                    setTimeout(() => {
-                        openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier);
-                    }, 150);
+                    openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier);
 
                 } catch (err) {
                     setOcrStatus(`Parsing Error: ${err.message}`, 'error');
@@ -1157,14 +1155,17 @@ function normalizeOcrDate(dateStr, fallbackMonth) {
 function openCsvImportModal(categories, selectedMonth, classifier) {
     const html = `
         <div class="p-1">
-            <div class="flex items-center gap-3 mb-5">
+            <div class="flex items-start gap-3 mb-5">
                 <span class="bg-brand-gradient p-2.5 rounded-xl text-white shadow-lg shadow-indigo-500/30">
                     <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
                 </span>
-                <div>
+                <div class="grow">
                     <h3 class="text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-none">Import Account CSV</h3>
                     <p class="text-slate-500 dark:text-slate-400 text-xs mt-1">Select a valid CSV file containing transaction statements. Map the primary columns below manually.</p>
                 </div>
+                <button type="button" id="btn-close-csv-import" class="shrink-0 p-2 -m-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer" aria-label="Close import dialog">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
             </div>
 
             <div id="csv-stage-1" class="space-y-4">
@@ -1233,6 +1234,7 @@ function openCsvImportModal(categories, selectedMonth, classifier) {
     `;
 
     showModal(html, () => {
+        document.getElementById('btn-close-csv-import').addEventListener('click', closeModal);
         const fileSelector = document.getElementById('csv-file-selector');
 
         const mapDateDropdown = createThemedDropdown({ size: 'sm', placeholder: 'Column…' });
@@ -1660,7 +1662,7 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
                 </div>
                 <div>
                     <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Receipt Date</label>
-                    <input type="date" id="itemized-date" value="${normalizedDate}" class="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-brand-500" />
+                    <input type="text" id="itemized-date" value="${normalizedDate}" readonly placeholder="Select date" class="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-brand-500 cursor-pointer" />
                 </div>
                 <div>
                     <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Currency</label>
@@ -1674,15 +1676,15 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
             </div>
 
             <div class="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-                <div class="max-h-[320px] overflow-auto scrollbar-thin">
-                    <table class="w-full text-left border-collapse text-xs min-w-[560px]">
+                <div class="max-h-[320px] overflow-y-auto overflow-x-hidden scrollbar-thin">
+                    <table class="w-full table-fixed text-left border-collapse text-xs">
                         <thead class="sticky top-0 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                             <tr>
                                 <th class="p-2.5 pl-3">Item Description</th>
-                                <th class="p-2.5 w-16 text-center">Qty</th>
+                                <th class="p-2.5 w-12 sm:w-14 text-center">Qty</th>
                                 <th class="p-2.5 w-24 text-right">Line Price (€)</th>
-                                <th class="p-2.5 w-36">Category Tag</th>
-                                <th class="p-2.5 w-10 text-center"></th>
+                                <th class="p-2.5 w-36 sm:w-44">Category Tag</th>
+                                <th class="p-2.5 w-8 text-center"></th>
                             </tr>
                         </thead>
                         <tbody id="itemized-rows-body" class="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900/50">
@@ -1718,6 +1720,7 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
     `;
 
     showModal(html, () => {
+        attachDatePicker(document.getElementById('itemized-date'));
         const body = document.getElementById('itemized-rows-body');
         let currentItems = [...items];
         const itemCatDropdowns = {};
@@ -1726,21 +1729,21 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
             body.innerHTML = currentItems.map((it, index) => {
                 return `
                     <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-all" data-item-index="${index}">
-                        <td class="p-2 pl-3">
-                            <input type="text" data-field="item_name" value="${escapeHTML(it.item_name)}" placeholder="Item description" class="w-full px-2 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-800 dark:text-slate-200 outline-none focus:border-brand-500 bg-white dark:bg-slate-900/70" />
+                        <td class="p-2 pl-3 min-w-0">
+                            <input type="text" data-field="item_name" value="${escapeHTML(it.item_name)}" placeholder="Item description" class="w-full min-w-0 px-2 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-800 dark:text-slate-200 outline-none focus:border-brand-500 bg-white dark:bg-slate-900/70" />
                         </td>
                         <td class="p-2">
-                            <input type="number" min="1" step="1" data-field="quantity" value="${it.quantity}" class="w-full px-1.5 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono text-center outline-none focus:border-brand-500 bg-white dark:bg-slate-900/70 text-slate-900 dark:text-slate-100" />
+                            <input type="number" min="1" step="1" data-field="quantity" value="${it.quantity}" class="no-spinner w-full min-w-0 px-1.5 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono text-center outline-none focus:border-brand-500 bg-white dark:bg-slate-900/70 text-slate-900 dark:text-slate-100" />
                         </td>
                         <td class="p-2">
-                            <input type="number" min="0" step="0.01" data-field="price" value="${parseFloat(it.price || 0).toFixed(2)}" class="w-full px-2 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono text-right outline-none focus:border-brand-500 bg-white dark:bg-slate-900/70 text-slate-900 dark:text-slate-100" />
+                            <input type="number" min="0" step="0.01" data-field="price" value="${parseFloat(it.price || 0).toFixed(2)}" class="no-spinner w-full min-w-0 px-2 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono text-right outline-none focus:border-brand-500 bg-white dark:bg-slate-900/70 text-slate-900 dark:text-slate-100" />
                         </td>
                         <td class="p-2">
-                            <div class="item-cat-wrap" data-row-index="${index}"></div>
+                            <div class="item-cat-wrap min-w-0" data-row-index="${index}"></div>
                         </td>
                         <td class="p-2 text-center">
-                            <button type="button" data-delete-row="${index}" class="p-2 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all">
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            <button type="button" data-delete-row="${index}" class="p-1.5 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                             </button>
                         </td>
                     </tr>
@@ -1951,7 +1954,7 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
     }
 });
         renderRows();
-    });
+    }, { widthClass: 'sm:max-w-2xl' });
 }
 
 /**

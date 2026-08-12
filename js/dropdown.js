@@ -38,9 +38,13 @@ document.addEventListener('mousedown', (e) => {
 });
 
 // Close open panels when their scroll context moves (capture phase covers
-// scrollable modal containers) or the viewport resizes.
-document.addEventListener('scroll', () => {
-    instances.forEach((inst) => { if (inst.isOpen) inst.close(); });
+// scrollable modal containers) or the viewport resizes. Scrolls originating
+// inside the open panel itself (the user scrolling the option list) are
+// ignored so the list can be scrolled without the dropdown closing.
+document.addEventListener('scroll', (e) => {
+    instances.forEach((inst) => {
+        if (inst.isOpen && !(inst.panel && inst.panel.contains(e.target))) inst.close();
+    });
 }, true);
 
 window.addEventListener('resize', () => {
@@ -388,6 +392,7 @@ trigger.appendChild(chevronWrap);
 
     const inst = {
         el: root,
+        panel,
         getValue: () => state.value,
         setValue: (val) => { state.value = val; renderOptions(); updateTrigger(); },
         setOptions: (opts) => {

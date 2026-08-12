@@ -709,14 +709,40 @@ function renderAuthScreen(customErrorMsg = "") {
 /**
  * Central Modal controls
  */
-export function showModal(htmlContent, onOpenCallback = null) {
+let modalEscapeHandler = null;
+let modalBackdropHandler = null;
+let modalGeneration = 0;
+
+const MODAL_WIDTH_CLASSES = ['sm:max-w-lg', 'sm:max-w-xl', 'sm:max-w-2xl', 'sm:max-w-3xl'];
+
+export function showModal(htmlContent, onOpenCallback = null, options = {}) {
     const overlay = document.getElementById('global-modal');
     const container = document.getElementById('global-modal-container');
+
+    modalGeneration += 1;
     
+    const widthClass = options.widthClass || 'sm:max-w-lg';
+    container.classList.remove(...MODAL_WIDTH_CLASSES);
+    container.classList.add(widthClass);
+
     container.innerHTML = htmlContent;
     overlay.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
-    
+
+    if (!modalEscapeHandler) {
+        modalEscapeHandler = (e) => {
+            if (e.key === 'Escape') closeModal();
+        };
+        document.addEventListener('keydown', modalEscapeHandler);
+    }
+
+    if (!modalBackdropHandler) {
+        modalBackdropHandler = (e) => {
+            if (e.target === overlay) closeModal();
+        };
+        overlay.addEventListener('click', modalBackdropHandler);
+    }
+
     setTimeout(() => {
         container.classList.remove('opacity-0', 'translate-y-8');
         container.classList.add('opacity-100', 'translate-y-0');
@@ -728,11 +754,24 @@ export function showModal(htmlContent, onOpenCallback = null) {
 export function closeModal() {
     const overlay = document.getElementById('global-modal');
     const container = document.getElementById('global-modal-container');
+    const generationAtClose = modalGeneration;
     
     container.classList.remove('opacity-100', 'translate-y-0');
     container.classList.add('opacity-0', 'translate-y-8');
     
+    if (modalEscapeHandler) {
+        document.removeEventListener('keydown', modalEscapeHandler);
+        modalEscapeHandler = null;
+    }
+    if (modalBackdropHandler) {
+        overlay.removeEventListener('click', modalBackdropHandler);
+        modalBackdropHandler = null;
+    }
+    
     setTimeout(() => {
+        // Guard against a stale hide clobbering a modal that was re-opened
+        // while this close animation was pending.
+        if (modalGeneration !== generationAtClose) return;
         overlay.classList.add('hidden');
         document.body.style.overflow = '';
     }, 200);
