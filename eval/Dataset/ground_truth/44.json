@@ -1,0 +1,56 @@
+{
+  "vendor": "Netto Marken-Discount",
+  "date": "28.07.2026",
+  "total_amount": 11.97,
+  "purchased_items": [
+    [
+      "Booster Kaktusfrucht 0,33 L DS",
+      4,
+      3.56,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Leergut 0,25 EUR EW",
+      4,
+      1.0,
+      "EUR",
+      "Miscellaneous"
+    ],
+    [
+      "Rabatt",
+      1,
+      -1.56,
+      "EUR",
+      "Miscellaneous"
+    ],
+    [
+      "Mor. Ital. Nudels. Arrabbi. 420g",
+      1,
+      1.45,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Antalya Queruembrot 800g",
+      2,
+      3.98,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Clarkys Chips sort. 200g",
+      1,
+      0.99,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "GL H-Milch 1,5% 1L",
+      3,
+      2.55,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

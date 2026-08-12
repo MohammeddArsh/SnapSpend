@@ -1,0 +1,35 @@
+{
+  "vendor": "Netto Marken-Discount",
+  "date": "31.07.2026",
+  "total_amount": 4.23,
+  "purchased_items": [
+    [
+      "Chupa Chups sort. 120g DY",
+      1,
+      1.29,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Rich Tomatenketchup Hot 500ml",
+      1,
+      1.29,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Bio NL Zwiebel rot500gUKE",
+      1,
+      1.29,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Bananen Lose NT",
+      1,
+      0.36,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}

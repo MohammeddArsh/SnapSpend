@@ -1,0 +1,35 @@
+{
+  "vendor": "Empik S.A.",
+  "date": "07.04.2026",
+  "total_amount": 76.96,
+  "purchased_items": [
+    [
+      "ILP-MAG-C-157734346A",
+      1,
+      16.99,
+      "PLN",
+      "Miscellaneous"
+    ],
+    [
+      "MAG Z ZAWI165269086A",
+      1,
+      24.99,
+      "PLN",
+      "Miscellaneous"
+    ],
+    [
+      "ILP-MAG-C-POLSKA-24A",
+      1,
+      17.99,
+      "PLN",
+      "Miscellaneous"
+    ],
+    [
+      "ILP-MAG-C-157734351A",
+      1,
+      16.99,
+      "PLN",
+      "Miscellaneous"
+    ]
+  ]
+}

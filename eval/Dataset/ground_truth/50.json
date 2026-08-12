@@ -1,0 +1,42 @@
+{
+  "vendor": "dm",
+  "date": "04.08.2026",
+  "total_amount": 28.35,
+  "purchased_items": [
+    [
+      "Jessa SE Pure Comfort Extra",
+      1,
+      1.25,
+      "EUR",
+      "Pharmacy"
+    ],
+    [
+      "SUNDANCE Hydro+ Serum LSF50 process",
+      1,
+      5.95,
+      "EUR",
+      "Pharmacy"
+    ],
+    [
+      "t!u lipgl. power peptide SPF20",
+      1,
+      3.25,
+      "EUR",
+      "Pharmacy"
+    ],
+    [
+      "Manhattan MultiTaskerBlush 100",
+      1,
+      8.95,
+      "EUR",
+      "Pharmacy"
+    ],
+    [
+      "Manhattan MultiTaskerBlush 250",
+      1,
+      8.95,
+      "EUR",
+      "Pharmacy"
+    ]
+  ]
+}

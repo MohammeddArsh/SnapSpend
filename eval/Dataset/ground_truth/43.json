@@ -1,0 +1,35 @@
+{
+  "vendor": "Aldi Süd",
+  "date": "28.07.2026",
+  "total_amount": 6.57,
+  "purchased_items": [
+    [
+      "Schokolade, VM",
+      1,
+      0.79,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Crunchips 250g",
+      1,
+      1.79,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Eisschale Tricolor",
+      1,
+      2.49,
+      "EUR",
+      "Groceries"
+    ],
+    [
+      "Börekstange Spinat",
+      2,
+      1.5,
+      "EUR",
+      "Groceries"
+    ]
+  ]
+}
