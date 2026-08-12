@@ -9,6 +9,41 @@ export let currentView = 'dashboard';
 // Dynamic modules dictionary to load content
 const views = {};
 
+// CAPTCHA (Cloudflare Turnstile) state — bot protection for auth sign-in/sign-up
+let captchaToken = null;
+let captchaWidgetEl = null;
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || (import.meta.env.DEV ? '1x00000000000000000000AA' : '');
+const captchaConfigured = !!TURNSTILE_SITE_KEY;
+
+window.onloadTurnstile = () => {
+    if (captchaWidgetEl) mountTurnstile();
+};
+
+function mountTurnstile() {
+    if (!window.turnstile || !captchaWidgetEl || !captchaConfigured) return;
+    try {
+        if (captchaWidgetEl.childElementCount) window.turnstile.remove(captchaWidgetEl);
+    } catch (e) { /* already removed */ }
+    window.turnstile.render(captchaWidgetEl, {
+        sitekey: TURNSTILE_SITE_KEY,
+        callback: (token) => {
+            captchaToken = token;
+            const btn = document.getElementById('btn-auth-submit');
+            if (btn) btn.disabled = false;
+        },
+        'expired-callback': () => {
+            captchaToken = null;
+            const btn = document.getElementById('btn-auth-submit');
+            if (btn) btn.disabled = true;
+        },
+        'error-callback': () => {
+            captchaToken = null;
+            const btn = document.getElementById('btn-auth-submit');
+            if (btn) btn.disabled = true;
+        }
+    });
+}
+
 // On startup setup
 document.addEventListener('DOMContentLoaded', async () => {
     // 1. Initialize Month to Current Month
@@ -577,8 +612,10 @@ function renderAuthScreen(customErrorMsg = "") {
                         <input type="password" id="auth-password" required placeholder="Choose a password" minlength="6" class="w-full px-3.5 py-2.5 bg-white/80 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 outline-none rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:bg-white dark:focus:bg-slate-900 text-sm text-slate-900 dark:text-slate-100 transition-all z-20" />
                     </div>
 
+                    <div id="turnstile-widget" class="pt-1"></div>
+
                     <div class="pt-2">
-                        <button type="submit" id="btn-auth-submit" class="w-full py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl font-semibold shadow-lg shadow-indigo-500/25 transition-all text-sm flex items-center justify-center gap-1.5 cursor-pointer">
+                        <button type="submit" id="btn-auth-submit" class="w-full py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl font-semibold shadow-lg shadow-indigo-500/25 transition-all text-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
                             <i data-lucide="log-in" class="w-4 h-4"></i> Sign In to Account
                         </button>
                     </div>
@@ -634,6 +671,10 @@ function renderAuthScreen(customErrorMsg = "") {
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (captchaConfigured && !captchaToken) {
+            alert("Please complete the security check.");
+            return;
+        }
         const identity = identityInput.value.trim();
         const password = document.getElementById('auth-password').value;
 
@@ -656,7 +697,7 @@ function renderAuthScreen(customErrorMsg = "") {
                     targetEmail = profile.email;
                 }
 
-                const { error } = await supabase.auth.signInWithPassword({ email: targetEmail, password });
+                const { error } = await supabase.auth.signInWithPassword({ email: targetEmail, password, options: { captchaToken } });
                 if (error) throw error;
             } else {
                 const username = authUsernameInput.value.trim().toLowerCase();
@@ -694,21 +735,33 @@ function renderAuthScreen(customErrorMsg = "") {
                     options: {
                         data: {
                             username: username
-                        }
+                        },
+                        captchaToken
                     }
                 });
                 if (signUpError) throw signUpError;
 
-                if (data && !data.session) {
+                if (data && data.session) {
+                    alert("Registration successful!");
+                } else if (data && data.user) {
                     alert("Registration successful! Check your email inbox to confirm registration.");
                 }
             }
         } catch (err) {
-            renderAuthScreen(err.message);
+            const msg = String(err && err.message ? err.message : err);
+            if (renderAuthScreen && /captcha/i.test(msg)) {
+                renderAuthScreen("Security verification failed. Please try again.");
+            } else {
+                renderAuthScreen(err.message);
+            }
         } finally {
             showActionSpinner(false);
         }
     });
+
+    captchaWidgetEl = document.getElementById('turnstile-widget');
+    if (captchaConfigured) btnSubmit.disabled = true;
+    if (window.turnstile) mountTurnstile();
 
     if (window.lucide) window.lucide.createIcons();
 }
