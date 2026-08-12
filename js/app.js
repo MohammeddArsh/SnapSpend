@@ -59,6 +59,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 3.5. Initialize Theme Toggle
     setupThemeToggle();
 
+    // 3.6. Developer Tools menu (Parser Evaluation)
+    setupDevToolsMenu();
+
     // 4. Listen to Auth Session
     if (isSupabaseConfigured()) {
         try {
@@ -87,6 +90,7 @@ async function handleAuthChange(user) {
         showSetupOverlay(false);
         document.getElementById('month-navigation-ribbon').classList.remove('hidden');
         document.getElementById('btn-logout').classList.remove('hidden');
+        document.getElementById('btn-dev-tools')?.classList.remove('hidden');
         
         const userEmailSpan = document.getElementById('user-display-email');
         if (userEmailSpan) {
@@ -122,6 +126,8 @@ async function handleAuthChange(user) {
     } else {
         document.getElementById('month-navigation-ribbon').classList.add('hidden');
         document.getElementById('btn-logout').classList.add('hidden');
+        document.getElementById('btn-dev-tools')?.classList.add('hidden');
+        document.getElementById('dev-tools-menu')?.classList.add('hidden');
         
         const userEmailSpan = document.getElementById('user-display-email');
         if (userEmailSpan) {
@@ -384,6 +390,30 @@ function setupThemeToggle() {
 }
 
 /**
+ * Developer Tools menu (Parser Evaluation)
+ */
+function setupDevToolsMenu() {
+    const btn = document.getElementById('btn-dev-tools');
+    const menu = document.getElementById('dev-tools-menu');
+    if (!btn || !menu) return;
+
+    const close = () => menu.classList.add('hidden');
+
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.classList.toggle('hidden');
+        setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 0);
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) close();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') close();
+    });
+}
+
+/**
  * Check if salary isn't logged, offer the banner autofill prompt
  */
 async function checkSalaryBanner() {
@@ -624,7 +654,7 @@ function renderAuthScreen(customErrorMsg = "") {
                 <div class="text-center mt-6 pt-5 border-t border-slate-200/70 dark:border-slate-800 flex flex-col gap-2">
                     <p class="text-xs text-slate-500 dark:text-slate-400">
                         Don't have an account?
-                        <button id="btn-auth-toggle" class="text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 font-bold transition-all ml-1 cursor-pointer">Create Account</button>
+                        <button id="btn-auth-toggle" class="text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 font-semibold transition-all ml-1 cursor-pointer">Create Account</button>
                     </p>
                 </div>
             </div>

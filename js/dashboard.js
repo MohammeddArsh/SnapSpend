@@ -1,7 +1,6 @@
 import { supabase } from './supabase.js';
-import { currentUser } from './app.js';
-import { formatCurrency, getPrevMonth, getMonthName } from './utils.js';
-import { navigateTo } from './app.js';
+import { currentUser, navigateTo } from './app.js';
+import { formatCurrency, getPrevMonth, getMonthName, escapeHTML } from './utils.js';
 import { mapToCanonical, getCategoryColor } from './categories.js';
 
 export async function render(container, selectedMonth) {
@@ -78,23 +77,23 @@ export async function render(container, selectedMonth) {
                 <!-- Welcome Title and Net Savings Banner -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
                     <div class="md:col-span-2 flex flex-col justify-center space-y-1.5 py-2">
-                        <span class="text-[11px] uppercase font-black text-brand-600 dark:text-brand-400 tracking-widest block">Monthly Ledger Digest</span>
+                        <span class="text-[11px] uppercase font-black text-brand-600 dark:text-brand-400 tracking-widest block">Monthly Overview</span>
                         <h2 class="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white leading-none">Financial Overview</h2>
-                        <p class="text-sm text-slate-500 dark:text-slate-400">Real-time income, expenses, and cash flow for ${getMonthName(selectedMonth)}.</p>
+                        <p class="text-sm text-slate-500 dark:text-slate-400">Income, expenses, and savings for ${getMonthName(selectedMonth)}.</p>
                     </div>
                     <!-- Net Savings Card -->
                     <div class="relative overflow-hidden rounded-3xl bg-brand-gradient text-white shadow-2xl shadow-indigo-500/30 p-6 flex flex-col justify-between">
                         <div class="glow-orb w-40 h-40 bg-white/20 -top-16 -right-16"></div>
                         <div class="glow-orb w-24 h-24 bg-fuchsia-400/40 -bottom-10 -left-10"></div>
                         <div class="flex justify-between items-start z-10 select-none">
-                            <span class="text-[11px] uppercase font-bold text-white/70 tracking-widest">Monthly Net Savings</span>
+                            <span class="text-[11px] uppercase font-semibold text-white/70 tracking-widest">Monthly Net Savings</span>
                             <div class="bg-white/15 backdrop-blur-sm p-2 rounded-xl text-white">
                                 <i data-lucide="wallet" class="w-4 h-4"></i>
                             </div>
                         </div>
                         <div class="mt-4 z-10 select-none">
                             <div class="text-3xl font-mono font-bold text-white tracking-tight tabular">${formatCurrency(savings)}</div>
-                            <p class="text-[11px] text-white/70 mt-1.5">Unallocated cash remaining after expenses</p>
+                            <p class="text-[11px] text-white/70 mt-1.5">What's left after covering your expenses</p>
                         </div>
                     </div>
                 </div>
@@ -106,18 +105,18 @@ export async function render(container, selectedMonth) {
                                 <i data-lucide="compass" class="w-5 h-5"></i>
                             </div>
                             <div>
-                                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Welcome to SnapSpend Personal Expense Tracker!</h3>
-                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Get started by logging your income credits or recording your monthly expenses:</p>
+                                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Welcome to SnapSpend</h3>
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Get started by adding your income or recording your expenses:</p>
                             </div>
                         </div>
                         <ul class="space-y-2.5 text-[13px] text-slate-700 dark:text-slate-300 font-medium">
                             <li class="flex items-center gap-2.5 bg-white dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 rounded-xl p-3">
                                 <i data-lucide="check-square" class="w-4 h-4 text-emerald-500 shrink-0"></i>
-                                <span>Log monthly salary or credits in <button id="welcome-btn-income" class="text-brand-600 dark:text-brand-400 font-bold hover:underline cursor-pointer">Income</button>.</span>
+                                <span>Log monthly salary or credits in <button id="welcome-btn-income" class="text-brand-600 dark:text-brand-400 font-semibold hover:underline cursor-pointer">Income</button>.</span>
                             </li>
                             <li class="flex items-center gap-2.5 bg-white dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 rounded-xl p-3">
                                 <i data-lucide="check-square" class="w-4 h-4 text-emerald-500 shrink-0"></i>
-                                <span>Record or scan receipts in <button id="welcome-btn-expenses" class="text-brand-600 dark:text-brand-400 font-bold hover:underline cursor-pointer">Expenses</button>.</span>
+                                <span>Record or scan receipts in <button id="welcome-btn-expenses" class="text-brand-600 dark:text-brand-400 font-semibold hover:underline cursor-pointer">Expenses</button>.</span>
                             </li>
                         </ul>
                     </div>
@@ -129,13 +128,13 @@ export async function render(container, selectedMonth) {
                     <!-- 1. Monthly Income -->
                     <div id="card-monthly-income" class="bento-card bento-card-hover p-5 cursor-pointer">
                         <div class="flex justify-between items-start mb-3">
-                            <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Monthly Income</span>
+                            <span class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Monthly Income</span>
                             <div class="bg-emerald-50 dark:bg-emerald-950/60 p-2 rounded-xl text-emerald-600 dark:text-emerald-400">
                                 <i data-lucide="trending-up" class="w-4 h-4"></i>
                             </div>
                         </div>
                         <div class="space-y-1.5">
-                            <span class="text-[11px] text-slate-400 dark:text-slate-500 uppercase tracking-wider block font-semibold">${getMonthName(selectedMonth)} credits</span>
+                            <span class="text-[11px] text-slate-400 dark:text-slate-500 uppercase tracking-wider block font-semibold">Credits for ${getMonthName(selectedMonth)}</span>
                             <div class="text-2xl font-mono font-bold text-slate-900 dark:text-white leading-tight tabular">${formatCurrency(totalIncome)}</div>
                             <div class="text-[11px] ${incomePercentChange >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'} font-semibold flex items-center gap-1 mt-2 pt-2.5 border-t border-slate-100 dark:border-slate-800">
                                 <i data-lucide="${incomePercentChange >= 0 ? 'arrow-up-right' : 'arrow-down-left'}" class="w-3 h-3"></i>
@@ -147,13 +146,13 @@ export async function render(container, selectedMonth) {
                     <!-- 2. Monthly Expenses -->
                     <div id="card-monthly-expenses" class="bento-card bento-card-hover p-5 cursor-pointer">
                         <div class="flex justify-between items-start mb-3">
-                            <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Monthly Expenses</span>
+                            <span class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Monthly Expenses</span>
                             <div class="bg-rose-50 dark:bg-rose-950/60 p-2 rounded-xl text-rose-600 dark:text-rose-400">
                                 <i data-lucide="trending-down" class="w-4 h-4"></i>
                             </div>
                         </div>
                         <div class="space-y-1.5">
-                            <span class="text-[11px] text-slate-400 dark:text-slate-500 uppercase tracking-wider block font-semibold">Outflows for ${getMonthName(selectedMonth)}</span>
+                            <span class="text-[11px] text-slate-400 dark:text-slate-500 uppercase tracking-wider block font-semibold">Spent in ${getMonthName(selectedMonth)}</span>
                             <div class="text-2xl font-mono font-bold text-slate-900 dark:text-white leading-tight tabular">${formatCurrency(totalExpenses)}</div>
                             <div class="text-[11px] ${expensePercentChange <= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'} font-semibold flex items-center gap-1 mt-2 pt-2.5 border-t border-slate-100 dark:border-slate-800">
                                 <i data-lucide="${expensePercentChange <= 0 ? 'arrow-down-right' : 'arrow-up-left'}" class="w-3 h-3"></i>
@@ -165,7 +164,7 @@ export async function render(container, selectedMonth) {
                     <!-- 3. Net Savings -->
                     <div id="card-monthly-savings" class="bento-card bento-card-hover p-5 cursor-pointer">
                         <div class="flex justify-between items-start mb-3">
-                            <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Net Savings</span>
+                            <span class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Net Savings</span>
                             <div class="bg-amber-50 dark:bg-amber-950/60 p-2 rounded-xl text-amber-600 dark:text-amber-400">
                                 <i data-lucide="shield" class="w-4 h-4"></i>
                             </div>
@@ -189,7 +188,7 @@ export async function render(container, selectedMonth) {
                             <h3 class="font-bold text-slate-900 dark:text-white text-base">Spending by Category</h3>
                             <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Expense distribution for ${getMonthName(selectedMonth)}</p>
                         </div>
-                        <span class="text-xs font-bold bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 px-3 py-1 rounded-full tabular shrink-0">
+                        <span class="text-xs font-semibold bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 px-3 py-1 rounded-full tabular shrink-0">
                             Total: ${formatCurrency(totalExpenses)}
                         </span>
                     </div>
@@ -199,14 +198,15 @@ export async function render(container, selectedMonth) {
                             <div class="bg-slate-50 dark:bg-slate-800/60 w-14 h-14 rounded-2xl text-slate-300 dark:text-slate-600 flex items-center justify-center mx-auto mb-3">
                                 <i data-lucide="pie-chart" class="w-6 h-6"></i>
                             </div>
-                            <p class="text-xs text-slate-400 dark:text-slate-500 font-medium">No expenses recorded for ${getMonthName(selectedMonth)} yet.</p>
+                            <p class="text-sm font-medium text-slate-500 dark:text-slate-400">No expenses recorded for ${getMonthName(selectedMonth)} yet.</p>
+                            <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Record expenses to see your spending breakdown here.</p>
                         </div>
                     ` : `
                         <div class="flex flex-col sm:flex-row items-center justify-center p-3 gap-6 sm:gap-12">
                             <!-- SVG Pie Chart -->
                             <div class="relative w-44 h-44 sm:w-56 sm:h-56 md:w-72 md:h-72 shrink-0 max-w-full flex items-center justify-center">
                                 <div id="pie-center-legend" class="absolute inset-0 flex flex-col items-center justify-center text-center p-4 rounded-full select-none">
-                                    <span class="text-[11px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wider" id="pie-lbl">Total Spent</span>
+                                    <span class="text-[11px] text-slate-400 dark:text-slate-500 uppercase font-semibold tracking-wider" id="pie-lbl">Total Spent</span>
                                     <span class="text-xl font-mono font-bold text-slate-900 dark:text-white tabular animate-fade-in" id="pie-val" style="animation-delay: 500ms">${formatCurrency(totalExpenses)}</span>
                                 </div>
                                 <svg class="w-full h-full -rotate-90" viewBox="-9 -9 118 118">
@@ -216,7 +216,7 @@ export async function render(container, selectedMonth) {
 
                             <!-- Category Legend -->
                             <div class="space-y-2.5 w-full sm:w-64 shrink-0">
-                                ${categories.map((cat, idx) => `
+                                ${categories.map(cat => `
                                     <div class="legend-row p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/40 flex items-center justify-between hover:border-brand-500/30 hover:shadow-md hover:shadow-indigo-500/5 cursor-pointer transition-colors group" data-category="${escapeAttr(cat.name)}">
                                         <div class="flex items-center gap-2.5 min-w-0">
                                             <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${cat.color}"></div>
@@ -268,8 +268,6 @@ function setupDashboardListeners(categories, totalIncome, totalExpenses) {
         if (lbl) lbl.textContent = label;
         if (val) val.textContent = formatCurrency(value);
     };
-
-    updatePieText("Total Spent", totalExpenses);
 
     // Cross-highlight between donut slices and legend rows
     const highlightCategory = (name) => {
@@ -354,16 +352,6 @@ function renderPieSlices(categories) {
         });
 
     return slices.join('');
-}
-
-function escapeHTML(str) {
-    if (!str) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
 }
 
 function escapeAttr(str) {

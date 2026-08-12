@@ -59,15 +59,20 @@ SnapSpend/
 │   ├── pdf-generator.js            # Monthly report → PDF export
 │   ├── reports.js                  # Monthly reports view & shared aggregation
 │   ├── supabase.js                 # Supabase client & session management
+│   ├── theme.mjs                   # Shared theme toggle (evaluation page)
 │   ├── utils.js                    # Utilities, formatting & security helpers
+│   ├── dataset/
+│   │   └── core.mjs                # Dataset-building engine (CLI)
 │   └── eval/
 │       ├── eval.js                 # Evaluation harness UI
 │       └── metrics.js              # Accuracy scoring functions
 │
 ├── eval/
-│   ├── dataset/
-│   │   ├── README.md               # Dataset guide & ground-truth format
-│   │   └── ground-truth.json       # Ground-truth template
+│   ├── build-dataset.mjs           # Dataset builder CLI
+│   ├── run-eval.mjs                # Evaluation CLI
+│   ├── config.mjs                  # Shared eval/dataset configuration
+│   ├── lib/                        # Shared eval libraries (OpenRouter client, prompts, …)
+│   └── Dataset/                    # Receipt images + ground-truth JSON
 │
 ├── eval.html                       # Standalone evaluation module page
 │
@@ -85,7 +90,8 @@ SnapSpend/
 │
 ├── tests/
 │   ├── classifier.test.js          # Naive Bayes classifier tests
-│   └── metrics.test.js             # Evaluation metrics tests
+│   ├── metrics.test.js             # Evaluation metrics tests
+│   └── openrouter.test.js          # OpenRouter client tests
 │
 ├── .env.example                    # Environment variable template
 ├── index.html                      # Main application shell
@@ -247,16 +253,35 @@ Both normalize item categories onto the canonical five and return the same shape
 
 ## Evaluation Module
 
-The separate **evaluation module** (`eval.html`, built at `/eval.html`) benchmarks how accurately multiple models × system prompts parse receipts:
+The evaluation tooling lives under `eval/` and runs standalone. Two pipelines:
 
-1. Drop receipt images into `eval/dataset/` and fill in `ground-truth.json` (see `eval/dataset/README.md`).
-2. Open `/eval.html` (requires `VITE_OPENROUTER_API_KEY` and/or `VITE_GEMINI_API_KEY`).
-3. Pick models (or add custom model IDs) and system prompts, then **Run Evaluation**.
+- **Dataset Builder** — annotates the receipt images in `eval/Dataset/Images` with multiple model setups (direct vision parsing and OCR-transcribe → LLM structuring, mirroring the Python `snapspend_dataset_pipeline/`). Each setup writes `eval/Dataset/<setup-name>/<stem>.json`.
+- **Evaluation CLI** — benchmarks pipelines × models × system prompts against ground-truth JSON and writes ranked reports.
 
-Metrics per (model × prompt) combination:
+### Dataset Builder
 
-- JSON validity, vendor match (exact & normalized), date match, total amount (exact + relative error), item count, item-name token F1, quantity match, price relative error, and canonical category match.
-- An **overall score** ranks the combinations; per-receipt details are inspectable and results can be exported as CSV or JSON.
+```bash
+node eval/build-dataset.mjs --list-setups     # default setups (free-first)
+node eval/build-dataset.mjs --dry-run          # plan without calling the API
+node eval/build-dataset.mjs                    # build all setups (resumable)
+node eval/build-dataset.mjs --setups gemma_4_31b_direct --limit 5
+```
+
+### Evaluation CLI
+
+```bash
+node eval/run-eval.mjs --list-models           # live free vision models
+node eval/run-eval.mjs --dry-run               # matrix + call budget
+node eval/run-eval.mjs                         # free-only default run
+node eval/run-eval.mjs --dataset <setup-name>  # score a built dataset vs ground truth
+node eval/run-eval.mjs --models anthropic/claude-haiku-4.5 --include-paid  # frontier comparison
+```
+
+Outputs land in `eval/results/` (gitignored): `summary.csv`, `summary.json`, `report.md`, per-combo `details/` and a resume `cache/`. Metrics per combination: JSON validity, vendor match (exact & normalized), date match, total amount (exact + relative error), item count, item-name token F1, quantity match, price relative error, canonical category match, estimated cost and latency — plus an **overall score** ranking.
+
+The browser harness at `/eval.html` uses the same hardened OpenRouter client as the CLI: free-tier models are paced (~20 req/min), transient 429/5xx errors are retried with backoff (`Retry-After` honored), and if the daily free quota is exhausted the run stops early with partial results marked instead of writing zeroed scores. Failed extractions are reported per receipt and never counted as valid parses.
+
+Notes: `VITE_OPENROUTER_API_KEY` is read from `.env`. Free `:free` tiers are paced (~20 req/min, ~200 req/day default cap); add ≥ $10 credits for ~1000 free calls/day, or shrink runs with `--limit`, `--prompts`, `--setups`. The browser page `/eval.html` still works for quick interactive runs.
 
 ---
 

@@ -1,6 +1,6 @@
 import { supabase } from './supabase.js';
-import { currentUser, reFetchAndRenderCurrentView, showModal, closeModal, showActionSpinner, setSelectedMonth, selectedMonth } from './app.js';
-import { formatCurrency, escapeHTML } from './utils.js';
+import { currentUser, reFetchAndRenderCurrentView, showModal, closeModal, showActionSpinner, setSelectedMonth } from './app.js';
+import { formatCurrency, escapeHTML, getMonthName } from './utils.js';
 import { NaiveBayesClassifier, classifyExpense, normalizeMerchantName } from './classifier.js';
 import { parseReceiptDirectly } from './parserEngine.js';
 import { CANONICAL_CATEGORIES, mapToCanonical, getCategoryColor } from './categories.js';
@@ -107,18 +107,6 @@ function normalizeCsvDate(value, selectedMonth) {
 }
 
 /**
- * Helper to safely extract a store name without depending on `note`.
- */
-function cleanNote(note) {
-    if (!note) return 'General Purchase';
-    if (typeof parseExpenseNote === 'function') {
-        const parsed = parseExpenseNote(note);
-        return parsed?.merchant || note;
-    }
-    return note;
-}
-
-/**
  * Gets receipt items for an entry following priority:
  * 1. DB expense_receipt_items
  * 2. Parsed raw_json.items
@@ -182,7 +170,7 @@ function flattenExpenseEntries(entries, categories) {
         if (items && items.length > 0) {
             items.forEach(item => {
                 const itemName = item.item_name || item.name || 'Item';
-                const parentCatName = e.expense_categories?.name || 'General';
+                const parentCatName = e.expense_categories?.name || 'Uncategorized';
                 const rawItemCat = item.category || '';
                 const catName = (rawItemCat && !['general', 'other'].includes(String(rawItemCat).toLowerCase()))
                     ? rawItemCat
@@ -222,7 +210,7 @@ function flattenExpenseEntries(entries, categories) {
                 quantity: 1,
                 displayNote: manualItemName,
                 amount: parseFloat(e.amount || 0),
-                categoryName: e.expense_categories?.name || 'General',
+                categoryName: e.expense_categories?.name || 'Uncategorized',
                 categoryId: e.category_id || null,
                 rawParent: e
             });
@@ -238,9 +226,6 @@ function flattenExpenseEntries(entries, categories) {
  * @param {Object} opts { showVendor: boolean, indentClass: string }
  */
 function buildItemRowHTML(row, { showVendor = true, indentClass = 'pl-4' } = {}) {
-    const safeFormat = typeof formatCurrency === 'function' ? formatCurrency : (val) => '€' + (parseFloat(val) || 0).toFixed(2);
-    const safeEscape = typeof escapeHTML === 'function' ? escapeHTML : (val) => String(val || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
     const isItemRow = !!row.isItem;
     const isLegacyItem = isItemRow && !isRealDbId(row.itemId);
     const searchableText = `${row.itemName || ''} ${row.merchant || ''} ${row.categoryName || ''}`.toLowerCase();
@@ -250,10 +235,10 @@ function buildItemRowHTML(row, { showVendor = true, indentClass = 'pl-4' } = {})
 
     const actions = isItemRow
         ? `
-            <button data-edit-receipt-item-id="${safeEscape(row.itemId)}" data-parent-expense-id="${row.expenseId}" class="p-2 sm:p-2 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" title="Edit Item">
+            <button data-edit-receipt-item-id="${escapeHTML(row.itemId)}" data-parent-expense-id="${row.expenseId}" class="p-2 sm:p-2 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" title="Edit Item">
                 <i data-lucide="edit-2" class="w-5 h-5"></i>
             </button>
-            <button data-delete-receipt-item-id="${safeEscape(row.itemId)}" data-parent-expense-id="${row.expenseId}" class="p-2 sm:p-2 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" title="Delete Item">
+            <button data-delete-receipt-item-id="${escapeHTML(row.itemId)}" data-parent-expense-id="${row.expenseId}" class="p-2 sm:p-2 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-all" title="Delete Item">
                 <i data-lucide="trash-2" class="w-5 h-5"></i>
             </button>`
         : `
@@ -267,39 +252,39 @@ function buildItemRowHTML(row, { showVendor = true, indentClass = 'pl-4' } = {})
     const vendorCell = showVendor
         ? `<div class="mt-0.5 flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
                 <i data-lucide="store" class="w-3 h-3 shrink-0"></i>
-                <span class="font-medium">${safeEscape(row.merchant)}</span>
+                <span class="font-medium">${escapeHTML(row.merchant)}</span>
             </div>`
         : '';
 
     return `
         <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-all expense-row-element cursor-pointer select-none"
-            data-item-cat-id="${safeEscape(row.categoryId || '')}"
-            data-item-cat-name="${safeEscape(row.categoryName || '')}"
-            data-text-note="${safeEscape(searchableText)}"
+            data-item-cat-id="${escapeHTML(row.categoryId || '')}"
+            data-item-cat-name="${escapeHTML(row.categoryName || '')}"
+            data-text-note="${escapeHTML(searchableText)}"
             data-text-amount="${row.amount || 0}">
             <td class="p-3 sm:p-3.5 ${indentClass} min-w-0">
                 <div class="flex items-center gap-2">
                     <i data-lucide="${isItemRow ? 'package' : 'receipt'}" class="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0"></i>
                     <div class="min-w-0">
                         <div class="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                            <span class="truncate">${safeEscape(row.itemName)}</span>${qtyBadge}
+                            <span class="truncate">${escapeHTML(row.itemName)}</span>${qtyBadge}
                         </div>
                         ${vendorCell}
                     </div>
                 </div>
             </td>
             <td class="p-3 sm:p-3.5 font-mono font-bold text-rose-600 dark:text-rose-400 tabular whitespace-nowrap text-right">
-                ${safeFormat(row.amount)}
+                ${formatCurrency(row.amount)}
             </td>
             <td class="p-3 sm:p-3.5 font-mono text-slate-500 dark:text-slate-400 hidden sm:table-cell tabular">
-                ${safeEscape(row.date)}
+                ${escapeHTML(row.date)}
             </td>
             <td class="p-3 sm:p-3.5 hidden md:table-cell">
                 ${(() => {
-                    const catColor = getCategoryColor(row.categoryName || 'General');
+                    const catColor = getCategoryColor(row.categoryName || 'Uncategorized');
                     return `<span class="px-2 py-0.5 rounded-full text-[11px] font-medium border inline-flex items-center gap-1.5" style="background-color: ${catColor}1a; color: ${catColor}; border-color: ${catColor}40">
                         <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background-color: ${catColor}"></span>
-                        ${safeEscape(row.categoryName || 'General')}
+                        ${escapeHTML(row.categoryName || 'Uncategorized')}
                     </span>`;
                 })()}
             </td>
@@ -337,9 +322,6 @@ function groupRowsByMerchant(displayRows) {
  * Builds the Merchants view HTML: one expandable group per merchant.
  */
 function buildMerchantGroupsHTML(displayRows) {
-    const safeFormat = typeof formatCurrency === 'function' ? formatCurrency : (val) => '€' + (parseFloat(val) || 0).toFixed(2);
-    const safeEscape = typeof escapeHTML === 'function' ? escapeHTML : (val) => String(val || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
     const groups = groupRowsByMerchant(displayRows);
 
     return groups.map(group => {
@@ -348,19 +330,19 @@ function buildMerchantGroupsHTML(displayRows) {
         const memberRows = group.rows.map(r => buildItemRowHTML(r, { showVendor: false, indentClass: 'pl-5 sm:pl-10' })).join('');
 
         return `
-            <div class="merchant-group-element border-b border-slate-100 dark:border-slate-800" data-merchant-key="${safeEscape(group.key)}">
+            <div class="merchant-group-element border-b border-slate-100 dark:border-slate-800" data-merchant-key="${escapeHTML(group.key)}">
                 <button type="button" class="merchant-group-toggle w-full flex items-center justify-between gap-3 p-3.5 pl-4 hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-all cursor-pointer select-none">
                     <div class="flex items-center gap-2 min-w-0">
                         <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 dark:text-slate-500 transition-transform duration-200 shrink-0"></i>
                         <i data-lucide="store" class="w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0"></i>
                         <div class="min-w-0 text-left">
-                            <div class="font-bold text-slate-900 dark:text-white truncate">${safeEscape(group.displayName)}</div>
+                            <div class="font-bold text-slate-900 dark:text-white truncate">${escapeHTML(group.displayName)}</div>
                             <div class="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
                                 ${entryCount} transaction${entryCount === 1 ? '' : 's'} · ${group.rows.length} item${group.rows.length === 1 ? '' : 's'}
                             </div>
                         </div>
                     </div>
-                    <div class="font-mono font-bold text-rose-600 dark:text-rose-400 tabular text-sm">${safeFormat(total)}</div>
+                    <div class="font-mono font-bold text-rose-600 dark:text-rose-400 tabular text-sm">${formatCurrency(total)}</div>
                 </button>
                 <div class="merchant-group-body hidden overflow-x-auto">
                     <table class="w-full table-fixed text-left border-collapse text-[13px]">
@@ -442,8 +424,8 @@ export async function render(container, selectedMonth) {
                         }
                     });
                 }
-            } catch (tblErr) {
-                console.warn("[SnapSpend Notice] Querying expense_receipt_items table notice:", tblErr.message);
+            } catch {
+                // Receipt items table may be unavailable; items fall back to raw_json.
             }
 
             // Guarantee items are attached following priority: DB table -> Legacy Note metadata -> Normal note
@@ -452,8 +434,7 @@ export async function render(container, selectedMonth) {
             });
         }
         if (cErr) throw cErr;
-
-        console.log("[SnapSpend Debug] Final processed entries:", entries);
+        if (eErr) throw eErr;
 
         const displayRows = flattenExpenseEntries(entries, categories);
         const merchantGroupsHTML = buildMerchantGroupsHTML(displayRows);
@@ -475,11 +456,12 @@ export async function render(container, selectedMonth) {
                 <!-- Header Actions -->
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
-                        <span class="text-[11px] uppercase font-black text-brand-600 dark:text-brand-400 tracking-widest">Monthly Expenses Log</span>
+                        <span class="text-[11px] uppercase font-black text-brand-600 dark:text-brand-400 tracking-widest">Spending Tracker</span>
                         <h2 class="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white">Expenses</h2>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1.5">Track and categorize spending for ${getMonthName(selectedMonth)}.</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
-                        <button id="btn-import-csv" class="px-3 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer">
+                        <button id="btn-import-csv" class="px-3.5 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer">
                             <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i> Import CSV
                         </button>
                         <button id="btn-add-expense" class="px-4 py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer">
@@ -496,12 +478,12 @@ export async function render(container, selectedMonth) {
                             <i data-lucide="arrow-down-left" class="w-5 h-5"></i>
                         </div>
                         <div>
-                            <span class="text-[11px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider">Total Monthly Expenditure</span>
-                            <div class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Sum of cash outflows in selected month</div>
+                            <span class="text-[11px] uppercase font-semibold text-slate-400 dark:text-slate-500 tracking-wider">Total Expenses</span>
+                            <div class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">All spending recorded this month</div>
                         </div>
                     </div>
                     <div class="text-left sm:text-right relative z-10">
-                        <span class="text-[11px] text-slate-400 dark:text-slate-500 font-medium leading-none block">Aggregate Expenses</span>
+                        <span class="text-[11px] text-slate-400 dark:text-slate-500 font-medium leading-none block">This Month</span>
                         <span class="text-2xl font-mono font-bold text-slate-950 dark:text-white tabular">${formatCurrency(totalExpenses)}</span>
                     </div>
                 </div>
@@ -518,101 +500,103 @@ export async function render(container, selectedMonth) {
                 </div>
 
                 <!-- Category Filter Pill Bar -->
-<div class="space-y-2 select-none my-3">
-    <div class="flex items-center justify-between">
-        <label class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Filter by Category</label>
-        <span id="active-filter-label" class="text-[11px] text-slate-400 dark:text-slate-500 font-medium">Showing: All</span>
-    </div>
-    
-    <div class="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-        <!-- 'All' Reset Button -->
-        <button type="button" 
-                data-category-filter="all" 
-                class="category-filter-btn active px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border bg-brand-gradient border-transparent text-white shadow-md shadow-indigo-500/25 cursor-pointer flex items-center gap-1.5">
-            <span>All Categories</span>
-            <span class="px-1.5 py-0.2 text-[11px] bg-white/20 text-white rounded-full font-mono">${displayRows.length}</span>
-        </button>
-
-        <!-- Dynamic Category Filter Buttons -->
-        ${categories.map(cat => {
-            const count = displayRows.filter(r => 
-                r.categoryId === cat.id || 
-                (r.categoryName && r.categoryName.toLowerCase() === cat.name.toLowerCase())
-            ).length;
-            const catColor = getCategoryColor(cat.name);
-
-            return `
-                <button type="button" 
-                        data-category-filter="${escapeHTML(cat.name)}" 
-                        data-category-id="${cat.id}"
-                        class="category-filter-btn px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border bg-slate-100/80 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-white cursor-pointer flex items-center gap-1.5">
-                    <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${catColor}"></span>
-                    <span>${escapeHTML(cat.name)}</span>
-                    <span class="px-1.5 py-0.2 text-[11px] bg-slate-200/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-full font-mono">${count}</span>
-                </button>
-            `;
-        }).join('')}
-    </div>
-</div>
-                </div>
-                <!-- Items / Merchants View -->
-<div class="bento-card overflow-hidden">
-    <div class="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit">
-            <button type="button" data-exp-tab="items" class="exp-tab-btn active px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm">
-                <i data-lucide="package" class="w-3.5 h-3.5 inline-block mr-1 -mt-0.5"></i> Items
-            </button>
-            <button type="button" data-exp-tab="merchants" class="exp-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
-                <i data-lucide="store" class="w-3.5 h-3.5 inline-block mr-1 -mt-0.5"></i> Merchants
-            </button>
-        </div>
-        <span class="text-[11px] font-mono text-slate-400 dark:text-slate-500">Newest First</span>
-    </div>
-
-    <!-- Items View (default): one row per item, vendor mentioned -->
-    <div id="exp-items-view">
-        <div class="overflow-x-auto">
-            <table class="w-full table-fixed text-left border-collapse text-[13px]" id="expense-main-table">
-                <thead>
-                    <tr class="bg-slate-50/80 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        <th class="p-3 sm:p-3.5 pl-3 sm:pl-4">Item</th>
-                        <th class="p-3 sm:p-3.5 w-24 sm:w-28">Amount</th>
-                        <th class="p-3 sm:p-3.5 w-24 sm:w-28 hidden sm:table-cell">Date</th>
-                        <th class="p-3 sm:p-3.5 w-28 sm:w-32 hidden md:table-cell">Category</th>
-                        <th class="p-3 sm:p-3.5 w-24 sm:w-24 text-right pr-2 sm:pr-4">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-[13px]">
-                    ${displayRows.length === 0 ? `
-                        <tr>
-                            <td colspan="5" class="p-10 text-center">
-                                <div class="bg-slate-50 dark:bg-slate-800/60 w-14 h-14 rounded-2xl text-slate-300 dark:text-slate-600 flex items-center justify-center mx-auto mb-3">
-                                    <i data-lucide="inbox" class="w-6 h-6"></i>
-                                </div>
-                                <p class="font-medium text-slate-500 dark:text-slate-400 text-sm">No expense items logged for this month.</p>
-                                <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Click <b>'Add Entry'</b> to record your first expense or <b>'Scan Receipt'</b> to auto-parse.</p>
-                            </td>
-                        </tr>
-                    ` : displayRows.map(row => buildItemRowHTML(row)).join('')}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Merchants View: grouped by vendor -->
-    <div id="exp-merchants-view" class="hidden">
-        ${merchantGroupsHTML
-            ? `<div class="divide-y divide-slate-100 dark:divide-slate-800">${merchantGroupsHTML}</div>`
-            : `
-                <div class="p-10 text-center">
-                    <div class="bg-slate-50 dark:bg-slate-800/60 w-14 h-14 rounded-2xl text-slate-300 dark:text-slate-600 flex items-center justify-center mx-auto mb-3">
-                        <i data-lucide="store" class="w-6 h-6"></i>
+                <div class="space-y-2 select-none">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Filter by Category</label>
+                        <span id="active-filter-label" class="text-[11px] text-slate-400 dark:text-slate-500 font-medium">Showing: All</span>
                     </div>
-                    <p class="font-medium text-slate-500 dark:text-slate-400 text-sm">No merchants found for this month.</p>
+
+                    <div class="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                        <!-- 'All' Reset Button -->
+                        <button type="button"
+                                data-category-filter="all"
+                                class="category-filter-btn active px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border bg-brand-gradient border-transparent text-white shadow-md shadow-indigo-500/25 cursor-pointer flex items-center gap-1.5">
+                            <span>All Categories</span>
+                            <span class="px-1.5 py-0.5 text-[11px] bg-white/20 text-white rounded-full font-mono">${displayRows.length}</span>
+                        </button>
+
+                        <!-- Dynamic Category Filter Buttons -->
+                        ${categories.map(cat => {
+                            const count = displayRows.filter(r =>
+                                r.categoryId === cat.id ||
+                                (r.categoryName && r.categoryName.toLowerCase() === cat.name.toLowerCase())
+                            ).length;
+                            const catColor = getCategoryColor(cat.name);
+
+                            return `
+                                <button type="button"
+                                        data-category-filter="${escapeHTML(cat.name)}"
+                                        data-category-id="${cat.id}"
+                                        class="category-filter-btn px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border bg-slate-100/80 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-white cursor-pointer flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${catColor}"></span>
+                                    <span>${escapeHTML(cat.name)}</span>
+                                    <span class="px-1.5 py-0.5 text-[11px] bg-slate-200/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-full font-mono">${count}</span>
+                                </button>
+                            `;
+                        }).join('')}
+                    </div>
                 </div>
-            `}
-    </div>
-</div>
+
+                <!-- Items / Merchants View -->
+                <div class="bento-card overflow-hidden">
+                    <div class="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit">
+                            <button type="button" data-exp-tab="items" class="exp-tab-btn active px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm">
+                                <i data-lucide="package" class="w-3.5 h-3.5 inline-block mr-1 -mt-0.5"></i> Items
+                            </button>
+                            <button type="button" data-exp-tab="merchants" class="exp-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
+                                <i data-lucide="store" class="w-3.5 h-3.5 inline-block mr-1 -mt-0.5"></i> Merchants
+                            </button>
+                        </div>
+                        <span class="text-[11px] font-mono text-slate-400 dark:text-slate-500">Newest First</span>
+                    </div>
+
+                    <!-- Items View (default): one row per item, vendor mentioned -->
+                    <div id="exp-items-view">
+                        <div class="overflow-x-auto">
+                            <table class="w-full table-fixed text-left border-collapse text-[13px]" id="expense-main-table">
+                                <thead>
+                                    <tr class="bg-slate-50/80 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                        <th class="p-3 sm:p-3.5 pl-3 sm:pl-4">Item</th>
+                                        <th class="p-3 sm:p-3.5 w-24 sm:w-28">Amount</th>
+                                        <th class="p-3 sm:p-3.5 w-24 sm:w-28 hidden sm:table-cell">Date</th>
+                                        <th class="p-3 sm:p-3.5 w-28 sm:w-32 hidden md:table-cell">Category</th>
+                                        <th class="p-3 sm:p-3.5 w-24 sm:w-24 text-right pr-2 sm:pr-4">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-[13px]">
+                                    ${displayRows.length === 0 ? `
+                                        <tr>
+                                            <td colspan="5" class="p-10 text-center">
+                                                <div class="bg-slate-50 dark:bg-slate-800/60 w-14 h-14 rounded-2xl text-slate-300 dark:text-slate-600 flex items-center justify-center mx-auto mb-3">
+                                                    <i data-lucide="inbox" class="w-6 h-6"></i>
+                                                </div>
+                                                <p class="font-medium text-slate-500 dark:text-slate-400 text-sm">No expenses recorded for this month.</p>
+                                                <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Click <b>Add Entry</b> to add your first expense — you can also scan a receipt from there.</p>
+                                            </td>
+                                        </tr>
+                                    ` : displayRows.map(row => buildItemRowHTML(row)).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Merchants View: grouped by vendor -->
+                    <div id="exp-merchants-view" class="hidden">
+                        ${merchantGroupsHTML
+                            ? `<div class="divide-y divide-slate-100 dark:divide-slate-800">${merchantGroupsHTML}</div>`
+                            : `
+                                <div class="p-10 text-center">
+                                    <div class="bg-slate-50 dark:bg-slate-800/60 w-14 h-14 rounded-2xl text-slate-300 dark:text-slate-600 flex items-center justify-center mx-auto mb-3">
+                                        <i data-lucide="store" class="w-6 h-6"></i>
+                                    </div>
+                                    <p class="font-medium text-slate-500 dark:text-slate-400 text-sm">No merchants found for this month.</p>
+                                    <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Merchants will appear here once you record expenses.</p>
+                                </div>
+                            `}
+                    </div>
+                </div>
+            </div>
         `;
 
         setupExpensesListeners(categories, entries, selectedMonth, classifier, trainingData);
@@ -676,30 +660,7 @@ function setupExpensesListeners(categories, entries, selectedMonth, classifier, 
         openCsvImportModal(categories, selectedMonth, classifier);
     });
 
-    // 3. COLLAPSED DRAWER ACCORDIONS
-    document.querySelectorAll('[data-collapse-trigger]').forEach(div => {
-        div.addEventListener('click', (e) => {
-            // Stop if they clicked edit/delete within collapsed view
-            if (e.target.closest('button')) return;
-
-            const id = div.getAttribute('data-collapse-trigger');
-            const drawer = document.getElementById(`drawer-${id}`);
-            const arrow = document.querySelector(`[data-arrow-id="${id}"]`);
-
-            if (drawer.classList.contains('hidden')) {
-                drawer.classList.remove('hidden');
-                arrow.classList.add('rotate-90');
-            } else {
-                drawer.classList.add('hidden');
-                arrow.classList.remove('rotate-90');
-            }
-        });
-    });
-
-    // 5. EVENT DELEGATION FOR EXPANDABLE RECEIPT DETAILS SUB-ROWS
-    //    Registered ONCE at module scope (see bottom of file) — not per-render.
-
-    // 6. LIVE SEARCH AND FILTERS CONTROLLER
+    // 3. LIVE SEARCH AND FILTERS CONTROLLER
     const search = document.getElementById('expense-search');
     const filterWrap = document.getElementById('expense-filter-cat-wrap');
 
@@ -749,7 +710,7 @@ function setupExpensesListeners(categories, entries, selectedMonth, classifier, 
 
     search.addEventListener('input', handleSearchFilter);
 
-    // 5b. ITEMS / MERCHANTS TAB SWITCHER
+    // 4. ITEMS / MERCHANTS TAB SWITCHER
     document.querySelectorAll('.exp-tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const tab = btn.getAttribute('data-exp-tab');
@@ -773,7 +734,7 @@ function setupExpensesListeners(categories, entries, selectedMonth, classifier, 
         });
     });
 
-    // 6. EDIT OR DELETE CRUD TRIGGER HANDLERS
+    // 5. EDIT OR DELETE CRUD TRIGGER HANDLERS
     // Parent expense handlers
     document.querySelectorAll('[data-edit-expense-id]').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -888,8 +849,8 @@ function openExpenseModal(entry, categories, selectedMonth, classifier, training
                     <i data-lucide="${isEdit ? 'edit-3' : 'plus-circle'}" class="w-4 h-4"></i>
                 </span>
                 <div>
-                    <h3 class="text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-none">${isEdit ? 'Alter' : 'Record'} Expense</h3>
-                    <p class="text-slate-500 dark:text-slate-400 text-xs mt-1">Ensure appropriate categories are tagged to keep financial indicators accurate.</p>
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-none">${isEdit ? 'Edit' : 'Add'} Expense</h3>
+                    <p class="text-slate-500 dark:text-slate-400 text-xs mt-1">Choose the right category to keep your reports accurate.</p>
                 </div>
             </div>
 
@@ -921,18 +882,18 @@ function openExpenseModal(entry, categories, selectedMonth, classifier, training
                     <input type="date" id="exp-date" required value="${defaultDate}" class="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 outline-none rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all text-xs text-slate-900 dark:text-slate-100" />
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Amount Spend (€)</label>
-                    <input type="number" id="exp-amount" required value="${isEdit ? entry.amount : pv('amount')}" min="0.01" step="0.01" placeholder="Enter Spent Amount" class="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 outline-none rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all font-mono text-xs text-slate-900 dark:text-slate-100" />
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Amount Spent (€)</label>
+                    <input type="number" id="exp-amount" required value="${isEdit ? entry.amount : pv('amount')}" min="0.01" step="0.01" placeholder="Enter amount" class="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 outline-none rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all font-mono text-xs text-slate-900 dark:text-slate-100" />
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Observation Memo / Note</label>
-                    <input type="text" id="exp-note" value="${isEdit ? escapeHTML(entry.note || '') : escapeHTML(pv('note'))}" placeholder="E.g., Groceries purchases, uber ride to station" class="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 outline-none rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all text-xs text-slate-900 dark:text-slate-100" />
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Note</label>
+                    <input type="text" id="exp-note" value="${isEdit ? escapeHTML(entry.note || '') : escapeHTML(pv('note'))}" placeholder="e.g. Groceries, taxi to the station" class="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 outline-none rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all text-xs text-slate-900 dark:text-slate-100" />
                 </div>
 
                 <div class="grid grid-cols-2 gap-3 pt-2">
                     <button type="button" id="btn-cancel-modal" class="py-2.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer">Cancel</button>
                     <button type="submit" class="py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-1.5 cursor-pointer">
-                        <i data-lucide="check" class="w-3.5 h-3.5"></i> Save Expense Record
+                        <i data-lucide="check" class="w-3.5 h-3.5"></i> Save Expense
                     </button>
                 </div>
             </form>
@@ -985,7 +946,7 @@ function openExpenseModal(entry, categories, selectedMonth, classifier, training
                     const stdDev = Math.sqrt(variance);
 
                     if (stdDev > 0 && amount > mean + (2.5 * stdDev)) {
-                        const proceed = confirm(`Warning: The amount logged (€${amount}) deviates significantly from your category average (Mean: €${mean.toFixed(0)}, StdDev: €${stdDev.toFixed(0)}). Is this correct?`);
+                        const proceed = confirm(`This amount (${formatCurrency(amount)}) is well above your average of ${formatCurrency(mean)} for this category. Save anyway?`);
                         if (!proceed) return;
                     }
                 }
@@ -1036,7 +997,6 @@ function openExpenseModal(entry, categories, selectedMonth, classifier, training
                 const classification = classifyExpense({ merchant: text, note: text }, categories, classifier);
                 if (classification && classification.categoryId) {
                     catDropdown.setValue(classification.categoryId);
-                    console.log(`[Category Autocomplete Debug] Input: "${text}" -> Category: "${classification.categoryName}" (ID: ${classification.categoryId}, Conf: ${classification.confidence}, Reason: "${classification.reason}")`);
                 }
             };
 
@@ -1089,13 +1049,13 @@ function openExpenseModal(entry, categories, selectedMonth, classifier, training
                 btnScan.disabled = true;
                 btnScan.classList.add('opacity-60', 'cursor-not-allowed');
                 btnText.textContent = 'Scanning...';
-                setOcrStatus('Extracting receipt data via Gemini API...', 'info');
+                setOcrStatus('Extracting receipt data…', 'info');
 
                 try {
-                    // Call Gemini directly from the client!
+                    // Parse the receipt image directly from the client
                     const ocrData = await parseReceiptDirectly(file);
 
-                    setOcrStatus('✓ Receipt parsed! Opening Itemized Review...', 'success');
+                    setOcrStatus('Receipt parsed. Opening itemized review…', 'success');
                     
                     openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier);
 
@@ -1167,8 +1127,8 @@ function openCsvImportModal(categories, selectedMonth, classifier) {
                     <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
                 </span>
                 <div class="grow">
-                    <h3 class="text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-none">Import Account CSV</h3>
-                    <p class="text-slate-500 dark:text-slate-400 text-xs mt-1">Select a valid CSV file containing transaction statements. Map the primary columns below manually.</p>
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-none">Import Expenses from CSV</h3>
+                    <p class="text-slate-500 dark:text-slate-400 text-xs mt-1">Upload a CSV file of transactions, then map its columns to the expense fields.</p>
                 </div>
                 <button type="button" id="btn-close-csv-import" class="shrink-0 p-2.5 sm:p-2 -m-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer" aria-label="Close import dialog">
                     <i data-lucide="x" class="w-4 h-4"></i>
@@ -1182,8 +1142,8 @@ function openCsvImportModal(categories, selectedMonth, classifier) {
                         <div class="bg-white dark:bg-slate-800 w-12 h-12 rounded-2xl text-slate-400 dark:text-slate-500 group-hover:text-brand-600 dark:group-hover:text-brand-400 shadow-sm flex items-center justify-center mx-auto transition-all">
                             <i data-lucide="upload-cloud" class="w-6 h-6"></i>
                         </div>
-                        <p class="text-[13px] font-semibold text-slate-700 dark:text-slate-200">Choose CSV file or Drag here</p>
-                        <p class="text-[11px] text-slate-400 dark:text-slate-500">Values must be standard comma separated</p>
+                        <p class="text-[13px] font-semibold text-slate-700 dark:text-slate-200">Choose a CSV file or drag it here</p>
+                        <p class="text-[11px] text-slate-400 dark:text-slate-500">Standard comma-separated values (.csv)</p>
                     </div>
                 </div>
             </div>
@@ -1192,37 +1152,37 @@ function openCsvImportModal(categories, selectedMonth, classifier) {
             <div id="csv-stage-2" class="hidden space-y-4">
                 <div class="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/60 rounded-xl">
                     <p class="text-[11px] text-emerald-800 dark:text-emerald-300 font-semibold flex items-center gap-1.5">
-                        <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Statement Loaded successfully! Map columns below.
+                        <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> File loaded. Map the columns below.
                     </p>
                 </div>
 
                 <div class="space-y-3">
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
-                            <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Date Column</label>
+                            <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">Date Column</label>
                             <div id="map-date-wrap"></div>
                         </div>
                         <div>
-                            <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Amount Spend</label>
+                            <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">Amount Column</label>
                             <div id="map-amount-wrap"></div>
                         </div>
                         <div>
-                            <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Description Note</label>
+                            <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">Description Column</label>
                             <div id="map-desc-wrap"></div>
                         </div>
                     </div>
                 </div>
 
                 <button type="button" id="btn-process-mapped" class="w-full py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-500/25 transition-all cursor-pointer">
-                    Compile Mapping List
+                    Review Entries
                 </button>
             </div>
 
             <!-- Categories Allocation Grid (Stage 3) -->
             <div id="csv-stage-3" class="hidden space-y-4">
                 <div class="border-b border-slate-100 dark:border-slate-800 pb-2">
-                    <h4 class="font-bold text-slate-800 dark:text-slate-200 text-[13px]">Assign Categories Manually</h4>
-                    <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Tag each spreadsheet record before final database upload. No auto-allocation of categories matches standard limits.</p>
+                    <h4 class="font-bold text-slate-800 dark:text-slate-200 text-[13px]">Assign Categories</h4>
+                    <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Review each row and confirm its category before importing.</p>
                 </div>
 
                 <!-- Scrollable spreadsheet editor -->
@@ -1233,7 +1193,7 @@ function openCsvImportModal(categories, selectedMonth, classifier) {
                 <div class="grid grid-cols-2 gap-3 pt-2">
                     <button type="button" id="btn-cancel-import" class="py-2.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer">Cancel</button>
                     <button id="btn-publish-imported" class="py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-1.5 cursor-pointer">
-                        <i data-lucide="cloud-lightning" class="w-3.5 h-3.5"></i> Publish statement (0 entries)
+                        <i data-lucide="cloud-lightning" class="w-3.5 h-3.5"></i> Import 0 entries
                     </button>
                 </div>
             </div>
@@ -1283,7 +1243,7 @@ function openCsvImportModal(categories, selectedMonth, classifier) {
                 });
 
                 if (rows.length < 2) {
-                    alert("A database statement sheet must contain at least 1 headers line and 1 record line.");
+                    alert("The CSV file must contain a header row and at least one data row.");
                     return;
                 }
 
@@ -1318,7 +1278,7 @@ function openCsvImportModal(categories, selectedMonth, classifier) {
             const descIdx = parseInt(mapDescDropdown.getValue());
 
             if (isNaN(dateIdx) || isNaN(amtIdx) || isNaN(descIdx)) {
-                alert("Please map all three columns (Date, Amount, Description) before compiling.");
+                alert("Please map the Date, Amount, and Description columns before continuing.");
                 return;
             }
 
@@ -1347,18 +1307,16 @@ function openCsvImportModal(categories, selectedMonth, classifier) {
                     amount: rawAmt
                 }, categories, classifier);
 
-                console.log(`[CSV Import Classification Debug] Desc: "${desc}" -> Category: "${rowClassification.categoryName}" (ID: ${rowClassification.categoryId}, Conf: ${rowClassification.confidence}, Reason: "${rowClassification.reason}")`);
-
                 const item = document.createElement('div');
                 item.className = "p-3 bg-white dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-800/50 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs";
                 item.innerHTML = `
                     <div class="space-y-0.5 grow">
                         <span class="text-[11px] text-slate-400 dark:text-slate-500 font-mono font-bold leading-none block">${rowDate}</span>
                         <input type="text" value="${escapeHTML(desc)}" class="font-semibold text-slate-800 dark:text-slate-200 bg-transparent outline-none w-full border-b border-transparent focus:border-slate-300 dark:focus:border-slate-600" id="row-desc-${rowIdx}" />
-                        <span class="font-mono text-xs font-semibold text-rose-600 dark:text-rose-400 block tabular">€${rawAmt}</span>
+                        <span class="font-mono text-xs font-semibold text-rose-600 dark:text-rose-400 block tabular">${formatCurrency(rawAmt)}</span>
                     </div>
                     <div class="sm:w-1/3 shrink-0">
-                        <label class="block text-[11px] uppercase tracking-wider font-bold text-slate-400 dark:text-slate-500 mb-1">Tag Category</label>
+                        <label class="block text-[11px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 mb-1">Tag Category</label>
                         <div id="row-cat-wrap-${rowIdx}"></div>
                     </div>
                 `;
@@ -1380,7 +1338,7 @@ function openCsvImportModal(categories, selectedMonth, classifier) {
             }).filter(Boolean);
 
             const compileBtn = document.getElementById('btn-publish-imported');
-            compileBtn.textContent = `Publish statements (${mappedData.length} entries)`;
+            compileBtn.textContent = `Import ${mappedData.length} ${mappedData.length === 1 ? 'entry' : 'entries'}`;
 
             // Bind publish event
             document.getElementById('btn-cancel-import').addEventListener('click', closeModal);
@@ -1438,7 +1396,7 @@ function openEditSingleItemModal(rowItem, categories, selectedMonth) {
         || categories.find(c => c.name.toLowerCase() === 'miscellaneous')
         || null;
 
-    const catOptions = categories.length > 0 ? categories.map(c => ({ value: c.id, label: c.name, color: getCategoryColor(c.name) })) : [{ value: '', label: 'General' }];
+    const catOptions = categories.length > 0 ? categories.map(c => ({ value: c.id, label: c.name, color: getCategoryColor(c.name) })) : [{ value: '', label: 'Uncategorized' }];
     const defaultCatId = defaultCat ? defaultCat.id : '';
 
     const html = `
@@ -1474,7 +1432,9 @@ function openEditSingleItemModal(rowItem, categories, selectedMonth) {
                 </div>
                 <div class="flex items-center justify-between gap-3 pt-2">
                     <button type="button" id="btn-cancel-edit-item" class="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-all cursor-pointer">Cancel</button>
-                    <button type="submit" class="px-5 py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-md shadow-indigo-500/25">Save Changes</button>
+                    <button type="submit" class="px-5 py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-md shadow-indigo-500/25 flex items-center gap-1.5">
+                        <i data-lucide="check" class="w-3.5 h-3.5"></i> Save Item
+                    </button>
                 </div>
             </form>
         </div>
@@ -1561,8 +1521,6 @@ function setupCategoryFilterDelegation() {
         const btn = e.target.closest('.category-filter-btn');
         if (!btn) return; // Ignore clicks outside the buttons
 
-        console.log("Filter button clicked:", btn.getAttribute('data-category-filter'));
-
         const targetFilter = btn.getAttribute('data-category-filter');
         activeCategoryFilter = targetFilter;
 
@@ -1576,7 +1534,7 @@ function setupCategoryFilterDelegation() {
             
             const badge = b.querySelector('span:last-child');
             if (badge) {
-                badge.className = "px-1.5 py-0.2 text-[11px] bg-slate-200/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-full font-mono";
+                badge.className = "px-1.5 py-0.5 text-[11px] bg-slate-200/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-full font-mono";
             }
         });
 
@@ -1586,7 +1544,7 @@ function setupCategoryFilterDelegation() {
         
         const activeBadge = btn.querySelector('span:last-child');
         if (activeBadge) {
-            activeBadge.className = "px-1.5 py-0.2 text-[11px] bg-white/20 text-white rounded-full font-mono";
+            activeBadge.className = "px-1.5 py-0.5 text-[11px] bg-white/20 text-white rounded-full font-mono";
         }
 
         if (filterLabel) {
@@ -1654,7 +1612,7 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
                     </div>
                     <div>
                         <h3 class="text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-none">Review Itemized Receipt</h3>
-                        <p class="text-slate-500 dark:text-slate-400 text-xs mt-1">Confirm extracted items and raw LLM category tags before saving.</p>
+                        <p class="text-slate-500 dark:text-slate-400 text-xs mt-1">Confirm the extracted items and categories before saving.</p>
                     </div>
                 </div>
                 <span class="px-2.5 py-1 bg-brand-50 dark:bg-brand-950/50 text-brand-700 dark:text-brand-300 text-[11px] font-semibold rounded-full border border-brand-200/70 dark:border-brand-900/60 flex items-center gap-1">
@@ -1664,15 +1622,15 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shrink-0">
                 <div>
-                    <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Vendor / Store</label>
+                    <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Vendor / Store</label>
                     <input type="text" id="itemized-merchant" value="${escapeHTML(merchantName)}" placeholder="Vendor Name" class="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-brand-500" />
                 </div>
                 <div>
-                    <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Receipt Date</label>
+                    <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Receipt Date</label>
                     <input type="text" id="itemized-date" value="${normalizedDate}" readonly placeholder="Select date" class="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-brand-500 cursor-pointer" />
                 </div>
                 <div>
-                    <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Currency</label>
+                    <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Currency</label>
                     <input type="text" id="itemized-currency" value="${escapeHTML(currencyStr)}" class="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-brand-500 uppercase" />
                 </div>
             </div>
@@ -1685,12 +1643,12 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
             <div class="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col min-h-0 flex-1 sm:flex-none">
                 <div id="itemized-items-scroll" class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-thin sm:max-h-[320px]">
                     <table class="w-full table-fixed text-left border-collapse text-xs hidden sm:table">
-                        <thead class="sticky top-0 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        <thead class="sticky top-0 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                             <tr>
                                 <th class="p-2.5 pl-3 w-[30%]">Item Description</th>
                                 <th class="p-2.5 w-12 sm:w-14 text-center">Qty</th>
                                 <th class="p-2.5 w-24 text-right">Line Price (€)</th>
-                                <th class="p-2.5 w-36 sm:w-44">Category Tag</th>
+                                <th class="p-2.5 w-36 sm:w-44">Category</th>
                                 <th class="p-2.5 w-8 text-center"></th>
                             </tr>
                         </thead>
@@ -1706,7 +1664,7 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
                     <div class="flex items-center gap-4 text-xs font-mono">
                         <div>
                             <span class="text-slate-400 dark:text-slate-500 text-[11px] font-sans">Receipt Total:</span>
-                            <span class="font-bold text-slate-800 dark:text-slate-200 tabular" id="disp-receipt-total">€${receiptTotalAmount.toFixed(2)}</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-200 tabular" id="disp-receipt-total">${formatCurrency(receiptTotalAmount)}</span>
                         </div>
                         <div>
                             <span class="text-slate-400 dark:text-slate-500 text-[11px] font-sans">Itemized Sum:</span>
@@ -1720,8 +1678,8 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
                 <button type="button" id="btn-cancel-itemized" class="px-4 py-2.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer">
                     Cancel
                 </button>
-                <button type="button" id="btn-save-itemized-expense" class="px-5 py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-500/25 transition-all flex items-center gap-1.5 cursor-pointer">
-                    <i data-lucide="check" class="w-4 h-4"></i> Save Itemized Expense
+                <button type="button" id="btn-save-itemized-expense" class="px-5 py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/25 transition-all flex items-center gap-1.5 cursor-pointer">
+                    <i data-lucide="check" class="w-3.5 h-3.5"></i> Save Receipt
                 </button>
             </div>
         </div>
@@ -1734,7 +1692,7 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
         let itemCatDropdowns = {};
 
         const fieldInputClasses = 'w-full border border-slate-200 dark:border-slate-700 rounded-lg text-xs outline-none focus:border-brand-500 bg-white dark:bg-slate-900/70 text-slate-900 dark:text-slate-100';
-        const fieldLabelClasses = 'block text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1';
+        const fieldLabelClasses = 'block text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1';
 
         const itemRowHTML = (it, index) => `
             <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-all" data-item-index="${index}">
@@ -1780,8 +1738,8 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
                     </div>
                 </div>
                 <div>
-                    <label class="${fieldLabelClasses}">Category Tag</label>
-                    <div class="item-cat-wrap min-w-0" data-row-index="${index}"></div>
+                        <label class="${fieldLabelClasses}">Category</label>
+                        <div class="item-cat-wrap min-w-0" data-row-index="${index}"></div>
                 </div>
             </div>
         `;
@@ -1824,14 +1782,14 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
                 sum += parseFloat(priceInput ? priceInput.value : 0) || 0;
             });
 
-            document.getElementById('disp-itemized-sum').textContent = `€${sum.toFixed(2)}`;
+            document.getElementById('disp-itemized-sum').textContent = formatCurrency(sum);
 
             const mismatchBanner = document.getElementById('itemized-mismatch-banner');
             const mismatchText = document.getElementById('itemized-mismatch-text');
 
             if (receiptTotalAmount > 0 && Math.abs(sum - receiptTotalAmount) > 0.01) {
                 mismatchBanner.classList.remove('hidden');
-                mismatchText.textContent = `Itemized total (€${sum.toFixed(2)}) does not match receipt total (€${receiptTotalAmount.toFixed(2)}). Please review extracted items.`;
+                mismatchText.textContent = `Itemized total (${formatCurrency(sum)}) does not match the receipt total (${formatCurrency(receiptTotalAmount)}). Please review the extracted items.`;
             } else {
                 mismatchBanner.classList.add('hidden');
             }
@@ -1894,7 +1852,7 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
         const name = nameInput ? nameInput.value.trim() : '';
         const qty = parseFloat(qtyInput ? qtyInput.value : 1) || 1;
         const price = parseFloat(priceInput ? priceInput.value : 0) || 0;
-        const cat = catDropdown ? catDropdown.getValue() : 'General';
+        const cat = catDropdown ? catDropdown.getValue() : 'Miscellaneous';
 
         if (name) {
             lineItems.push({
@@ -1963,8 +1921,6 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
             throw entryErr;
         }
 
-        console.log("Successfully created parent expense_entry:", newEntry);
-
         // 2. Insert line items into expense_receipt_items
         if (newEntry && newEntry.id && lineItems.length > 0) {
             const dbItems = lineItems.map(it => ({
@@ -1978,18 +1934,13 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
                 confidence: 0.95
             }));
 
-            console.log("Inserting line items into expense_receipt_items:", dbItems);
-
-            const { data: savedItems, error: itemsErr } = await supabase
+            const { error: itemsErr } = await supabase
                 .from('expense_receipt_items')
-                .insert(dbItems)
-                .select();
+                .insert(dbItems);
 
             if (itemsErr) {
                 console.error("Error inserting into expense_receipt_items:", itemsErr);
                 alert("Saved parent expense, but failed to save line items: " + itemsErr.message);
-            } else {
-                console.log("Successfully saved line items:", savedItems);
             }
         }
 

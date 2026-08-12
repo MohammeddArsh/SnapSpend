@@ -42,7 +42,7 @@
           <h2 class="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Link Supabase</h2>
         </div>
         <p class="text-slate-500 dark:text-slate-400 text-sm mb-5">
-          Provide your Supabase URL and Anon Key to activate the applet database. You can copy these from your Supabase Project Settings.
+          Provide your Supabase URL and Anon Key to activate the SnapSpend database. You can copy these from your Supabase Project Settings.
         </p>
         <form id="setup-form" class="space-y-4">
           <div>
@@ -99,6 +99,22 @@
           <button id="btn-reconnect-db" class="p-3 sm:p-2 text-slate-400 dark:text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 rounded-xl transition-all hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer" title="Database Configuration" aria-label="Database Configuration">
             <i data-lucide="database" class="w-4 h-4"></i>
           </button>
+          <div class="relative">
+            <button id="btn-dev-tools" class="hidden p-3 sm:p-2 text-slate-400 dark:text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 rounded-xl transition-all hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer" title="Developer Tools" aria-label="Developer Tools">
+              <i data-lucide="flask-conical" class="w-4 h-4"></i>
+            </button>
+            <!-- Developer tools popover -->
+            <div id="dev-tools-menu" class="hidden absolute right-0 top-full mt-2 w-64 glass-surface border border-slate-200/70 dark:border-slate-700/60 rounded-2xl shadow-2xl p-2 animate-scale-in z-50">
+              <p class="px-3 pt-2 pb-1.5 text-[9px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Developer Tools</p>
+              <a href="/eval.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer">
+                <span class="bg-brand-gradient-soft text-brand-600 dark:text-brand-400 rounded-lg p-2 shrink-0"><i data-lucide="bar-chart-3" class="w-4 h-4"></i></span>
+                <span class="min-w-0">
+                  <span class="block text-xs font-bold text-slate-800 dark:text-slate-100">Parser Evaluation</span>
+                  <span class="block text-[10px] text-slate-400 dark:text-slate-500 truncate">Benchmark models &amp; prompts on receipts</span>
+                </span>
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </header>

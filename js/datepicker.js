@@ -78,7 +78,7 @@ function render(inst) {
     const title = inst.viewDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
     const weekdayHeader = WEEKDAYS.map((d) =>
-        `<span class="h-7 flex items-center justify-center text-[10px] font-bold text-slate-400 dark:text-slate-500">${d}</span>`
+        `<span class="h-7 flex items-center justify-center text-[10px] font-semibold text-slate-400 dark:text-slate-500">${d}</span>`
     ).join('');
 
     const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7; // Monday-first

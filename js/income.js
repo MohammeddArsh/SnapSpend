@@ -1,6 +1,6 @@
 import { supabase } from './supabase.js';
 import { currentUser, reFetchAndRenderCurrentView, showModal, closeModal, showActionSpinner } from './app.js';
-import { formatCurrency, escapeHTML } from './utils.js';
+import { formatCurrency, escapeHTML, getMonthName } from './utils.js';
 import { createThemedDropdown } from './dropdown.js';
 
 export async function render(container, selectedMonth) {
@@ -38,8 +38,9 @@ export async function render(container, selectedMonth) {
                 <!-- Header Actions -->
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
-                        <span class="text-[11px] uppercase font-black text-brand-600 dark:text-brand-400 tracking-widest">Monthly Credit Tracking</span>
+                        <span class="text-[11px] uppercase font-black text-brand-600 dark:text-brand-400 tracking-widest">Income Tracker</span>
                         <h2 class="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white">Income Log</h2>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1.5">Record and review income for ${getMonthName(selectedMonth)}.</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <button id="btn-manage-sources" class="px-3.5 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer">
@@ -59,12 +60,12 @@ export async function render(container, selectedMonth) {
                             <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
                         </div>
                         <div>
-                            <span class="text-[11px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider">Monthly Income Aggregation</span>
-                            <div class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Total credited funds in base currency (EUR)</div>
+                            <span class="text-[11px] uppercase font-semibold text-slate-400 dark:text-slate-500 tracking-wider">Total Income</span>
+                            <div class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">All income recorded this month</div>
                         </div>
                     </div>
                     <div class="text-left sm:text-right relative z-10">
-                        <span class="text-[11px] text-slate-400 dark:text-slate-500 font-medium leading-none block">Total Recorded</span>
+                        <span class="text-[11px] text-slate-400 dark:text-slate-500 font-medium leading-none block">This Month</span>
                         <span class="text-2xl font-mono font-bold text-slate-950 dark:text-white tabular">${formatCurrency(totalIncome)}</span>
                     </div>
                 </div>
@@ -72,13 +73,13 @@ export async function render(container, selectedMonth) {
                 <!-- Entries List -->
                 <div class="bento-card overflow-hidden">
                     <div class="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
-                        <span class="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">Income Entries</span>
+                        <span class="text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">Income Entries</span>
                         <span class="text-[11px] font-mono text-slate-400 dark:text-slate-500">Newest First</span>
                     </div>
                     <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                            <tr class="bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                                 <th class="p-3 sm:p-4">Source</th>
                                 <th class="p-3 sm:p-4">Amount</th>
                                 <th class="p-3 sm:p-4 hidden sm:table-cell">Date Credited</th>
@@ -94,7 +95,7 @@ export async function render(container, selectedMonth) {
                                              <i data-lucide="inbox" class="w-6 h-6"></i>
                                          </div>
                                          <p class="font-medium text-slate-500 dark:text-slate-400 text-sm">No income records entered for this month.</p>
-                                         <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Get started by clicking <b>'Add Entry'</b> above to log your first income payout.</p>
+                                         <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Click <b>Add Entry</b> above to log your first income.</p>
                                      </td>
                                  </tr>
                             ` : entries.map(entry => `
@@ -218,8 +219,8 @@ function openEntryModal(entry, sources, selectedMonth) {
                     <i data-lucide="${isEdit ? 'edit-3' : 'plus-circle'}" class="w-4 h-4"></i>
                 </span>
                 <div>
-                    <h3 class="text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-none">${isEdit ? 'Modify' : 'Log'} Income</h3>
-                    <p class="text-slate-500 dark:text-slate-400 text-xs mt-1">Ensure values match your bank statement credits.</p>
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-none">${isEdit ? 'Edit' : 'Add'} Income</h3>
+                    <p class="text-slate-500 dark:text-slate-400 text-xs mt-1">Ensure the values match your bank statement.</p>
                 </div>
             </div>
 
@@ -338,7 +339,7 @@ function openSourcesModal(sources) {
                 </span>
                 <div>
                     <h3 class="text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-none">Income Sources</h3>
-                    <p class="text-slate-500 dark:text-slate-400 text-xs mt-1">Define or modify categories used in your monthly logging.</p>
+                    <p class="text-slate-500 dark:text-slate-400 text-xs mt-1">Add, rename, or remove the sources you log income under.</p>
                 </div>
             </div>
 
@@ -350,12 +351,12 @@ function openSourcesModal(sources) {
 
             <div class="max-h-[250px] overflow-y-auto mb-5 border border-slate-100 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 scrollbar-thin">
                 ${sources.length === 0 ? `
-                    <p class="p-4 text-center text-slate-400 dark:text-slate-500 text-xs">No custom sources available.</p>
+                    <p class="p-4 text-center text-slate-400 dark:text-slate-500 text-xs">No sources yet. Add one above.</p>
                 ` : sources.map(src => `
                     <div class="flex items-center justify-between p-3 bg-white dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all text-[13px] gap-2">
                         <input type="text" value="${escapeHTML(src.name)}" data-source-id="${src.id}" class="font-medium text-slate-800 dark:text-slate-200 bg-transparent border-b border-transparent focus:border-brand-500 outline-none pb-0.5 min-w-0 flex-1 w-full" />
                         <div class="flex items-center gap-1.5 shrink-0">
-                            <button data-save-source-id="${src.id}" class="text-brand-600 dark:text-brand-400 hover:text-brand-700 font-semibold text-[11px] h-9 px-2 rounded-lg cursor-pointer hide">Save</button>
+                            <button data-save-source-id="${src.id}" class="text-brand-600 dark:text-brand-400 hover:text-brand-700 font-semibold text-[11px] h-9 px-2 rounded-lg cursor-pointer">Save</button>
                             <button data-del-source-id="${src.id}" class="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 p-1.5 cursor-pointer transition-all">
                                 <i data-lucide="trash" class="w-4 h-4"></i>
                             </button>
@@ -365,7 +366,7 @@ function openSourcesModal(sources) {
             </div>
 
             <div class="flex justify-end">
-                <button type="button" id="btn-close-sources-modal" class="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium rounded-xl text-xs cursor-pointer transition-all">Close Panel</button>
+                <button type="button" id="btn-close-sources-modal" class="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium rounded-xl text-xs cursor-pointer transition-all">Close</button>
             </div>
         </div>
     `;

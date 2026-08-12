@@ -57,18 +57,21 @@ export async function render(container, selectedMonth) {
             <div id="assistant-messages" class="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-3 pr-1 pb-3 rounded-2xl scrollbar-thin"></div>
 
             <!-- Suggested Questions (hidden once chatting) -->
-            <div id="assistant-suggestions" class="flex flex-wrap gap-2 pb-2">
-                ${SUGGESTED_QUESTIONS.map(q => `
-                    <button class="suggestion-chip text-xs font-semibold text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50 hover:bg-brand-100 dark:hover:bg-brand-900/50 border border-brand-200/70 dark:border-brand-900/60 rounded-full px-3 py-1.5 transition-all cursor-pointer">
-                        ${escapeHTML(q)}
-                    </button>
-                `).join('')}
+            <div id="assistant-suggestions" class="pb-2">
+                <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-2">I can answer questions about your income and spending. Try asking:</p>
+                <div class="flex flex-wrap gap-2">
+                    ${SUGGESTED_QUESTIONS.map(q => `
+                        <button class="suggestion-chip text-xs font-semibold text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50 hover:bg-brand-100 dark:hover:bg-brand-900/50 border border-brand-200/70 dark:border-brand-900/60 rounded-full px-3 py-1.5 transition-all cursor-pointer">
+                            ${escapeHTML(q)}
+                        </button>
+                    `).join('')}
+                </div>
             </div>
 
             <!-- Composer -->
             <div class="glass-surface dark:bg-slate-900/70 border border-slate-200/70 dark:border-slate-700/60 rounded-2xl p-2.5 shadow-lg shadow-slate-900/5 dark:shadow-black/30 flex items-end gap-2">
-                <textarea id="assistant-input" rows="1" placeholder="Ask anything about your expenses..." class="flex-1 resize-none outline-none text-sm px-2 py-1.5 max-h-32 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 bg-transparent"></textarea>
-                <button id="assistant-send" class="shrink-0 bg-brand-gradient hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl px-4 py-2.5 text-xs font-bold shadow-lg shadow-indigo-500/25 transition-all flex items-center gap-1.5 cursor-pointer">
+                <textarea id="assistant-input" rows="1" placeholder="Ask about your spending…" class="flex-1 resize-none outline-none text-sm px-2 py-1.5 max-h-32 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 bg-transparent"></textarea>
+                <button id="assistant-send" class="shrink-0 bg-brand-gradient hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl px-4 py-2.5 text-xs font-semibold shadow-lg shadow-indigo-500/25 transition-all flex items-center gap-1.5 cursor-pointer">
                     <i data-lucide="send" class="w-4 h-4"></i> Ask
                 </button>
             </div>
@@ -197,18 +200,18 @@ function buildAssistantReply(data) {
     return `
         <div class="flex justify-start animate-fade-in">
             <div class="max-w-[95%] glass-surface dark:bg-slate-900/70 border border-slate-200/70 dark:border-slate-700/60 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm space-y-2.5">
-                <p class="text-xs leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-line">${escapeHTML(data.content || 'Done.')}</p>
+                <p class="text-xs leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-line">${escapeHTML(data.content || "I couldn't find an answer for that. Try rephrasing your question.")}</p>
 
                 ${isTabular ? `
                     <details class="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 overflow-hidden">
-                        <summary class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-3 py-2 cursor-pointer select-none hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+                        <summary class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-3 py-2 cursor-pointer select-none hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
                             ${rows.length} result row${rows.length === 1 ? '' : 's'}
                         </summary>
                         <div class="overflow-x-auto">
                             <table class="w-full text-left text-[11px] font-mono">
                                 <thead>
                                     <tr class="bg-slate-100 dark:bg-slate-800 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                        ${Object.keys(rows[0]).map(k => `<th class="px-3 py-1.5 font-bold">${escapeHTML(k)}</th>`).join('')}
+                                        ${Object.keys(rows[0]).map(k => `<th class="px-3 py-1.5 font-semibold">${escapeHTML(k)}</th>`).join('')}
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900/60">
