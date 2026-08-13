@@ -6,7 +6,8 @@
 
 **AI-powered, privacy-first expense tracking — right in your browser.**
 
-[![Live Demo](https://img.shields.io/badge/Try%20it%20live-Vercel-000000?style=flat-square&logo=vercel&logoColor=white)](https://snap-spend-rho.vercel.app/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-snap--spend--rho.vercel.app-18181b?style=for-the-badge&logo=vercel&logoColor=white)](https://snap-spend-rho.vercel.app/)
+
 ![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-3c873a?style=flat-square)
 ![Vite](https://img.shields.io/badge/Vite-6-646cff?style=flat-square&logo=vite&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-4-06b6d4?style=flat-square&logo=tailwindcss&logoColor=white)
@@ -32,13 +33,50 @@ Everything runs client-side against a Postgres database locked down with Row-Lev
 
 ## Features
 
-- **AI receipt scanning** — upload a receipt photo and get structured JSON (vendor, date, total, itemized lines with categories) to review before saving.
-- **AI assistant** — ask questions like *"How much did I spend on Groceries this month?"* and get grounded answers sourced only from your data.
-- **Dashboard** — monthly income, expenses, and net savings, plus a spending-by-category chart across five canonical categories.
-- **Income & expenses** — monthly income logs with one-click salary copy, manual expenses with on-device category suggestions, and CSV import.
-- **Reports & PDF export** — a monthly snapshot with savings rate, month-over-month deltas, and a clean single-page PDF.
-- **Auth & bot protection** — username + email + password sign-up guarded by Cloudflare Turnstile.
-- **Evaluation module** — benchmark any number of models × system prompts on receipts against ground-truth JSON.
+### Auth & account
+
+- Sign up or sign in with an **email or username**, guarded by Cloudflare Turnstile bot protection.
+- New accounts are auto-seeded with default income sources and the five canonical expense categories.
+
+### Dashboard
+
+- Monthly **income, expenses and net savings** cards with month-over-month changes.
+- Interactive **spending-by-category donut** with hover cross-highlighting — click any category to jump to its filtered expenses.
+- Month-navigation ribbon to browse past months.
+
+### Income
+
+- Log income per source (date, amount, note) and **manage income sources**.
+- One-click **copy last month's salary** as a draft.
+
+### Expenses
+
+- Manual entries with **on-device AI category suggestions** and spending-anomaly warnings.
+- **AI receipt scanning**: upload a photo and get a structured, categorised expense to review before saving — with automatic Gemini → OpenRouter failover.
+- **CSV import** with column mapping, DE/EN currency & date parsing, and per-row category review.
+- Live search, category filter pills, and **Items / Merchants** views with expandable merchant groups.
+
+### Reports
+
+- Monthly snapshot with **net savings, savings rate, month-over-month deltas**, and rule-based audit insights.
+- Income and expense ledgers beside a **spending donut**.
+- One-click **single-page PDF export** that always matches the on-screen report.
+
+### AI Assistant
+
+- Ask about your spending in **plain English** and get grounded answers sourced only from your data — read-only and always scoped to you.
+- Eight deterministic stats tools, suggested questions, and conversation memory.
+- Runs via the **Supabase edge function** (text-to-SQL) or a **client-side Gemini fallback** on static deployments.
+
+### Evaluation module
+
+- Benchmark **models × system prompts** on receipt images against ground-truth JSON, scored across 10 metrics with CSV/JSON export.
+- Dataset builder and evaluation CLI, plus the in-app `/eval.html` harness.
+
+### Platform
+
+- **Dark/light theme** (persisted) and a responsive, mobile-first layout with bottom navigation.
+- Row-Level Security, no third-party tracking, and HTML-escaped output.
 
 ## Screenshots
 
