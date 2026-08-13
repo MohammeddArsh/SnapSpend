@@ -104,9 +104,6 @@ Watch SnapSpend in action:
   </a>
 </p>
 
-> [!NOTE]
-> Replace `YOUR_VIDEO_ID` in the link above with your YouTube video. The thumbnail and screenshots live in `docs/images/`.
-
 ## Getting started
 
 ### Prerequisites
