@@ -1053,7 +1053,12 @@ function openExpenseModal(entry, categories, selectedMonth, classifier, training
                     // Parse the receipt image directly from the client
                     const ocrData = await parseReceiptDirectly(file);
 
-                    setOcrStatus('Receipt parsed. Opening itemized review…', 'success');
+                    setOcrStatus(
+                        ocrData.provider === 'openrouter'
+                            ? 'Gemini busy — parsed via OpenRouter. Opening itemized review…'
+                            : 'Receipt parsed. Opening itemized review…',
+                        'success'
+                    );
                     
                     openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier);
 

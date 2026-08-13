@@ -75,7 +75,15 @@ export const DEFAULT_OPENROUTER_MODELS = [
     "google/gemma-4-31b-it:free",
 ];
 
-export const DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite";
+export const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";
+
+// OpenRouter model used when the direct Gemini vision API is unavailable
+// (persistent HTTP 503 "high demand"). Override via VITE_RECEIPT_FALLBACK_MODEL.
+export const DEFAULT_FALLBACK_MODEL = "google/gemini-3.1-flash-lite";
+
+// Transient Gemini errors worth retrying — and failing over to OpenRouter on.
+const GEMINI_RETRYABLE = new Set([429, 500, 502, 503, 504]);
+const GEMINI_MAX_RETRIES = 4;
 
 // Convert File to Base64
 function fileToBase64(file) {
@@ -96,28 +104,59 @@ function fileToBase64(file) {
  * @param {string} [options.model] - Model id for the selected provider
  * @param {string} [options.systemPrompt] - System prompt describing the extraction task
  * @param {number} [options.temperature=0.1]
- * @returns {Promise<{vendor: string, date: string, total_amount: number, purchased_items: Array}>}
+ * @param {boolean} [options.fallbackToOpenRouter=false] - On Gemini failure (503/429/5xx/network),
+ *   retry the parse through OpenRouter and return the fallback result.
+ * @returns {Promise<{vendor: string, date: string, total_amount: number, purchased_items: Array, provider: string}>}
  */
-export async function parseReceiptWithModel({ file, provider = 'gemini', model, systemPrompt = DEFAULT_SYSTEM_PROMPT, temperature = 0.1 }) {
+export async function parseReceiptWithModel({ file, provider = 'gemini', model, systemPrompt = DEFAULT_SYSTEM_PROMPT, temperature = 0.1, fallbackToOpenRouter = false }) {
     const base64Data = await fileToBase64(file);
     const mimeType = file.type || 'image/jpeg';
 
-    const raw =
+    const parseWithPrimaryProvider = () =>
         provider === 'openrouter'
-            ? await parseViaOpenRouter(base64Data, mimeType, model, systemPrompt, temperature)
-            : await parseViaGemini(base64Data, mimeType, model, systemPrompt, temperature);
+            ? parseViaOpenRouter(base64Data, mimeType, model, systemPrompt, temperature)
+            : parseViaGemini(base64Data, mimeType, model, systemPrompt, temperature, { maxRetries: fallbackToOpenRouter ? 1 : GEMINI_MAX_RETRIES });
 
-    return normalizeParsedOutput(raw);
+    try {
+        const parsed = await parseWithPrimaryProvider();
+        return { ...normalizeParsedOutput(parsed), provider };
+    } catch (err) {
+        if (!shouldFailoverToOpenRouter(err, { fallbackToOpenRouter, provider })) throw err;
+
+        const fallbackModel = import.meta.env?.VITE_RECEIPT_FALLBACK_MODEL || DEFAULT_FALLBACK_MODEL;
+        const parsed = await parseViaOpenRouter(base64Data, mimeType, fallbackModel, systemPrompt, temperature);
+        return { ...normalizeParsedOutput(parsed), provider: 'openrouter' };
+    }
+}
+
+// OpenRouter only pays off for Gemini failures that will not clear on their own
+// (transient 5xx/429s, hard daily quota, or network errors without a status) —
+// and only when the caller opted in and an OpenRouter key is configured.
+function shouldFailoverToOpenRouter(err, { fallbackToOpenRouter, provider }) {
+    if (!fallbackToOpenRouter || provider !== 'gemini') return false;
+    if (!import.meta.env?.VITE_OPENROUTER_API_KEY) return false;
+    return isGeminiFailoverError(err);
+}
+
+// Gemini errors worth failing over to OpenRouter: transient 5xx/429s, hard
+// daily quota, missing/invalid API key, or network failures (no status).
+function isGeminiFailoverError(err) {
+    if (!err) return false;
+    if (err.status === undefined || err.status === null) return true;
+    return GEMINI_RETRYABLE.has(err.status);
 }
 
 /**
  * Backward-compatible wrapper used by the Expenses module.
+ * Falls back to OpenRouter when Gemini vision capacity is exhausted
+ * (set VITE_RECEIPT_FALLBACK=0 to disable).
  */
 export async function parseReceiptDirectly(file) {
-    return parseReceiptWithModel({ file, provider: 'gemini', model: DEFAULT_GEMINI_MODEL, systemPrompt: DEFAULT_SYSTEM_PROMPT });
+    const fallbackEnabled = (import.meta.env?.VITE_RECEIPT_FALLBACK ?? '1') !== '0';
+    return parseReceiptWithModel({ file, provider: 'gemini', model: DEFAULT_GEMINI_MODEL, systemPrompt: DEFAULT_SYSTEM_PROMPT, fallbackToOpenRouter: fallbackEnabled });
 }
 
-async function parseViaGemini(base64Data, mimeType, model, systemPrompt, temperature) {
+async function parseViaGemini(base64Data, mimeType, model, systemPrompt, temperature, { maxRetries = GEMINI_MAX_RETRIES } = {}) {
     const apiKey = import.meta.env?.VITE_GEMINI_API_KEY;
     if (!apiKey) throw new Error("VITE_GEMINI_API_KEY is missing in your .env file!");
 
@@ -140,8 +179,6 @@ async function parseViaGemini(base64Data, mimeType, model, systemPrompt, tempera
         }
     };
 
-    const GEMINI_RETRYABLE = new Set([429, 500, 502, 503, 504]);
-    const GEMINI_MAX_RETRIES = 4;
     let attempt = 0;
 
     while (true) {
@@ -170,7 +207,7 @@ async function parseViaGemini(base64Data, mimeType, model, systemPrompt, tempera
             throw err;
         }
 
-        if (GEMINI_RETRYABLE.has(status) && attempt < GEMINI_MAX_RETRIES) {
+        if (GEMINI_RETRYABLE.has(status) && attempt < maxRetries) {
             // Prefer a "retry in Xs" hint from the error body when present.
             const hint = errorText.match(/retry (?:in|after) ([\d.]+) ?s/i);
             attempt++;
@@ -178,7 +215,14 @@ async function parseViaGemini(base64Data, mimeType, model, systemPrompt, tempera
             continue;
         }
 
-        const err = new Error(`Gemini API Error (HTTP ${status}): ${errorText.slice(0, 300)}`);
+        // Retries exhausted — distinguish Gemini capacity ("high demand") from
+        // genuine config problems so the caller can decide on a failover.
+        const capacity = status === 503 || (status === 429 && /high demand|capacity|busy/i.test(errorText));
+        const err = new Error(
+            capacity
+                ? `Gemini vision capacity is temporarily exhausted (HTTP ${status}). Retry in a few minutes.`
+                : `Gemini API Error (HTTP ${status}): ${errorText.slice(0, 300)}`
+        );
         err.status = status;
         throw err;
     }
