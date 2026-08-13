@@ -206,10 +206,10 @@ export async function render(container, selectedMonth) {
                     ` : `
                         <div class="flex flex-col sm:flex-row items-center justify-center p-3 gap-6 sm:gap-12">
                             <!-- SVG Pie Chart -->
-                            <div class="relative w-44 h-44 sm:w-56 sm:h-56 md:w-72 md:h-72 shrink-0 max-w-full flex items-center justify-center">
-                                <div id="pie-center-legend" class="absolute inset-0 flex flex-col items-center justify-center text-center p-4 rounded-full select-none">
+                            <div class="relative w-52 h-52 sm:w-64 sm:h-64 md:w-80 md:h-80 shrink-0 max-w-full flex items-center justify-center">
+                                <div id="pie-center-legend" class="absolute inset-0 flex flex-col items-center justify-center text-center p-3 rounded-full select-none">
                                     <span class="text-[11px] text-slate-400 dark:text-slate-500 uppercase font-semibold tracking-wider" id="pie-lbl">Total Spent</span>
-                                    <span class="text-xl font-mono font-bold text-slate-900 dark:text-white tabular animate-fade-in" id="pie-val" style="animation-delay: 500ms">${formatCurrency(totalExpenses)}</span>
+                                    <span class="text-lg sm:text-xl font-mono font-bold text-slate-900 dark:text-white tabular animate-fade-in" id="pie-val" style="animation-delay: 500ms">${formatCurrency(totalExpenses)}</span>
                                 </div>
                                 <svg class="w-full h-full -rotate-90" viewBox="-9 -9 118 118">
                                     ${renderPieSlices(categories)}
@@ -329,7 +329,7 @@ function setupDashboardListeners(categories, totalIncome, totalExpenses) {
 function renderPieSlices(categories) {
     const total = categories.reduce((sum, c) => sum + c.amount, 0);
     if (total <= 0) {
-        return `<circle cx="50" cy="50" r="35" fill="none" stroke="#e2e8f0" stroke-width="10" class="dark:stroke-slate-800" />`;
+        return `<circle cx="50" cy="50" r="44" fill="none" stroke="#e2e8f0" stroke-width="9" class="dark:stroke-slate-800" />`;
     }
 
     let accumulatedPercentage = 0;
@@ -341,10 +341,10 @@ function renderPieSlices(categories) {
             const strokeOffset = 100 - accumulatedPercentage;
             accumulatedPercentage += percentage;
             return `
-                <circle cx="50" cy="50" r="35" fill="none"
+                <circle cx="50" cy="50" r="44" fill="none"
                         pathLength="100"
                         stroke="${cat.color}"
-                        stroke-width="10"
+                        stroke-width="9"
                         stroke-dasharray="${strokeDash}"
                         stroke-dashoffset="${strokeOffset}"
                         style="--slice-dash: ${strokeDash}; animation-delay: ${idx * 130}ms"

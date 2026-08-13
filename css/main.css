@@ -311,9 +311,28 @@ textarea:focus-visible,
     min-width: 56px;
     padding: 6px 10px;
   }
-  /* Prevent iOS Safari auto-zoom when focusing small-font inputs */
-  input, select, textarea {
+  /* Prevent iOS Safari auto-zoom when focusing small-font inputs.
+     Dropdown triggers and date inputs must match the same 16px size so
+     modal form fields render at equal heights on phones. */
+  input, select, textarea, .ss-dropdown > button {
     font-size: 16px !important;
+  }
+  input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Hide scrollbars on phones while keeping touch scrolling */
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
   }
 }
 

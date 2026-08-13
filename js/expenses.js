@@ -1621,21 +1621,6 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
                 </span>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shrink-0">
-                <div>
-                    <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Vendor / Store</label>
-                    <input type="text" id="itemized-merchant" value="${escapeHTML(merchantName)}" placeholder="Vendor Name" class="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-brand-500" />
-                </div>
-                <div>
-                    <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Receipt Date</label>
-                    <input type="text" id="itemized-date" value="${normalizedDate}" readonly placeholder="Select date" class="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-brand-500 cursor-pointer" />
-                </div>
-                <div>
-                    <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Currency</label>
-                    <input type="text" id="itemized-currency" value="${escapeHTML(currencyStr)}" class="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-brand-500 uppercase" />
-                </div>
-            </div>
-
             <div id="itemized-mismatch-banner" class="hidden p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300 rounded-xl text-xs font-medium flex items-center gap-2 shrink-0">
                 <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 shrink-0"></i>
                 <span id="itemized-mismatch-text">Itemized total does not match receipt total. Please review extracted items.</span>
@@ -1643,6 +1628,20 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
 
             <div class="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col min-h-0 flex-1">
                 <div id="itemized-items-scroll" class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-thin">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 dark:bg-slate-900/50 p-3 border-b border-slate-200 dark:border-slate-800">
+                        <div>
+                            <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Vendor / Store</label>
+                            <input type="text" id="itemized-merchant" value="${escapeHTML(merchantName)}" placeholder="Vendor Name" class="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-brand-500" />
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Receipt Date</label>
+                            <input type="text" id="itemized-date" value="${normalizedDate}" readonly placeholder="Select date" class="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-brand-500 cursor-pointer" />
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Currency</label>
+                            <input type="text" id="itemized-currency" value="${escapeHTML(currencyStr)}" class="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-brand-500 uppercase" />
+                        </div>
+                    </div>
                     <table class="w-full table-fixed text-left border-collapse text-xs hidden sm:table">
                         <thead class="sticky top-0 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                             <tr>
