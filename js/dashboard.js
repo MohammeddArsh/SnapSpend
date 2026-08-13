@@ -77,23 +77,25 @@ export async function render(container, selectedMonth) {
                 <!-- Welcome Title and Net Savings Banner -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
                     <div class="md:col-span-2 flex flex-col justify-center space-y-1.5 py-2">
-                        <span class="text-[11px] uppercase font-black text-brand-600 dark:text-brand-400 tracking-widest block">Monthly Overview</span>
-                        <h2 class="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white leading-none">Financial Overview</h2>
-                        <p class="text-sm text-slate-500 dark:text-slate-400">Income, expenses, and savings for ${getMonthName(selectedMonth)}.</p>
+<span class="eyebrow text-brand-600 dark:text-brand-400 block">Monthly Ledger Digest</span>
+                        <h2 class="font-display text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white leading-none">Financial Overview</h2>
+                        <p class="text-sm text-slate-500 dark:text-slate-400">Real-time income, expenses, and cash flow for ${getMonthName(selectedMonth)}.</p>
                     </div>
                     <!-- Net Savings Card -->
-                    <div class="relative overflow-hidden rounded-3xl bg-brand-gradient text-white shadow-2xl shadow-indigo-500/30 p-6 flex flex-col justify-between">
-                        <div class="glow-orb w-40 h-40 bg-white/20 -top-16 -right-16"></div>
-                        <div class="glow-orb w-24 h-24 bg-fuchsia-400/40 -bottom-10 -left-10"></div>
-                        <div class="flex justify-between items-start z-10 select-none">
-                            <span class="text-[11px] uppercase font-semibold text-white/70 tracking-widest">Monthly Net Savings</span>
-                            <div class="bg-white/15 backdrop-blur-sm p-2 rounded-xl text-white">
-                                <i data-lucide="wallet" class="w-4 h-4"></i>
-                            </div>
+                    <div class="panel-ink p-6 flex flex-col justify-between">
+                        <div class="flex justify-between items-start select-none">
+                            <span class="eyebrow text-white/50">Monthly Net Savings</span>
+                            <svg class="logo-mark" width="30" height="18" viewBox="0 0 40 24" fill="none" aria-hidden="true">
+                                <rect x="3" y="12" width="5" height="9" rx="1.5" fill="#10b981"/>
+                                <rect x="10" y="7" width="5" height="14" rx="1.5" fill="#0ea5e9"/>
+                                <rect x="17" y="10" width="5" height="11" rx="1.5" fill="#8b5cf6"/>
+                                <rect x="24" y="3" width="5" height="18" rx="1.5" fill="#f59e0b"/>
+                                <rect x="31" y="6" width="5" height="15" rx="1.5" fill="#64748b"/>
+                            </svg>
                         </div>
-                        <div class="mt-4 z-10 select-none">
+                        <div class="mt-4 select-none">
                             <div class="text-3xl font-mono font-bold text-white tracking-tight tabular">${formatCurrency(savings)}</div>
-                            <p class="text-[11px] text-white/70 mt-1.5">What's left after covering your expenses</p>
+<p class="text-[11px] text-white/50 mt-1.5">Unallocated cash remaining after expenses</p>
                         </div>
                     </div>
                 </div>
@@ -185,7 +187,7 @@ export async function render(container, selectedMonth) {
                 <div class="bento-card p-6 space-y-5">
                     <div class="flex justify-between items-center gap-2 flex-wrap pb-3 border-b border-slate-100 dark:border-slate-800">
                         <div class="min-w-0">
-                            <h3 class="font-bold text-slate-900 dark:text-white text-base">Spending by Category</h3>
+                            <h3 class="font-display font-bold text-slate-900 dark:text-white text-base tracking-tight">Spending by Category</h3>
                             <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Expense distribution for ${getMonthName(selectedMonth)}</p>
                         </div>
                         <span class="text-xs font-semibold bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 px-3 py-1 rounded-full tabular shrink-0">
@@ -216,8 +218,8 @@ export async function render(container, selectedMonth) {
 
                             <!-- Category Legend -->
                             <div class="space-y-2.5 w-full sm:w-64 shrink-0">
-                                ${categories.map(cat => `
-                                    <div class="legend-row p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/40 flex items-center justify-between hover:border-brand-500/30 hover:shadow-md hover:shadow-indigo-500/5 cursor-pointer transition-colors group" data-category="${escapeAttr(cat.name)}">
+${categories.map(cat => `
+                                    <div class="legend-row p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/40 flex items-center justify-between hover:border-brand-500/30 cursor-pointer transition-colors group" data-category="${escapeAttr(cat.name)}">
                                         <div class="flex items-center gap-2.5 min-w-0">
                                             <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${cat.color}"></div>
                                             <div class="min-w-0">

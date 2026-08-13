@@ -5,19 +5,22 @@
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Archivo", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
-  --color-brand-50: #f2f0ff;
-  --color-brand-100: #e6e2ff;
-  --color-brand-200: #d0c8ff;
-  --color-brand-300: #b0a3ff;
-  --color-brand-400: #8b74ff;
-  --color-brand-500: #6d47ff;
-  --color-brand-600: #5a21f5;
-  --color-brand-700: #4c15d8;
-  --color-brand-800: #4013b0;
-  --color-brand-900: #35138e;
-  --color-brand-950: #1d0b52;
+  /* Statement green brand scale. Single accent for all interactive chrome —
+     color is otherwise reserved for the user's money data (category palette). */
+  --color-brand-50: #edfbf4;
+  --color-brand-100: #d6f6e5;
+  --color-brand-200: #adecce;
+  --color-brand-300: #78dcb2;
+  --color-brand-400: #3ec493;
+  --color-brand-500: #17a876;
+  --color-brand-600: #0e9f6e;
+  --color-brand-700: #0a7a54;
+  --color-brand-800: #0b5f45;
+  --color-brand-900: #0a4d39;
+  --color-brand-950: #04291f;
 
   --animate-fade-in: fade-in 0.35s ease-out both;
   --animate-slide-up: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -44,8 +47,8 @@ html {
 
 body {
   font-family: var(--font-sans);
-  background-color: #f6f7fb;
-  color: #0f172a;
+  background-color: #fafaf8;
+  color: #1a1c20;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
@@ -60,76 +63,95 @@ body {
 }
 
 .dark body {
-  background-color: #080a12;
-  color: #e2e8f0;
+  background-color: #0b0d12;
+  color: #e9ebef;
 }
 
 ::selection {
-  background-color: rgba(139, 92, 246, 0.25);
+  background-color: rgba(23, 168, 118, 0.25);
 }
 
-/* Theme-aware surface card */
+/* Small-caps, letterspaced micro label — the "ledger" signature. */
+.eyebrow {
+  font-size: 10px;
+  line-height: 1.5;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+/* Theme-aware surface card: flat paper with a single hairline rule. */
 .bento-card {
   background-color: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  border-radius: 1.25rem;
-  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04), 0 8px 24px -12px rgba(15, 23, 42, 0.08);
+  border: 1px solid #e8e8e4;
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px 0 rgba(26, 28, 32, 0.03);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, background-color 0.3s ease;
 }
 
 .dark .bento-card {
-  background-color: rgba(15, 18, 32, 0.85);
-  border-color: rgba(51, 65, 85, 0.45);
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3), 0 12px 32px -16px rgba(0, 0, 0, 0.5);
+  background-color: #13161d;
+  border-color: #262a33;
+  box-shadow: none;
 }
 
 .bento-card-hover:hover {
-  border-color: rgba(139, 92, 246, 0.35);
-  transform: translateY(-2px);
-  box-shadow: 0 12px 32px -12px rgba(99, 102, 241, 0.25);
+  border-color: rgba(23, 168, 118, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px -16px rgba(26, 28, 32, 0.18);
 }
 
 .dark .bento-card-hover:hover {
-  border-color: rgba(139, 92, 246, 0.45);
-  box-shadow: 0 16px 40px -16px rgba(99, 102, 241, 0.35);
+  border-color: rgba(60, 196, 147, 0.35);
+  box-shadow: 0 12px 28px -16px rgba(0, 0, 0, 0.6);
 }
 
-/* Brand gradient helpers */
+/* Solid "ink" panel — the statement hero. Dark in light mode, lifted in dark. */
+.panel-ink {
+  background-color: #1a1c20;
+  color: #f5f6f8;
+  border: 1px solid #1a1c20;
+  border-radius: 1rem;
+}
+
+.dark .panel-ink {
+  background-color: #151922;
+  border-color: #262a33;
+}
+
+/* Brand accent helpers — flat statement green, no gradients. */
 .bg-brand-gradient {
-  background-image: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #3b82f6 100%);
+  background-color: #0e9f6e;
+  background-image: none;
 }
 
 .bg-brand-gradient-soft {
-  background-image: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(59, 130, 246, 0.08));
+  background-color: rgba(23, 168, 118, 0.1);
 }
 
 .dark .bg-brand-gradient-soft {
-  background-image: none;
-  background-color: rgba(29, 11, 82, 0.3);
+  background-color: rgba(60, 196, 147, 0.12);
 }
 
 .text-gradient {
-  background-image: linear-gradient(135deg, #8b5cf6, #6366f1, #3b82f6);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: #0a7a54;
 }
 
 .dark .text-gradient {
-  background-image: linear-gradient(135deg, #a78bfa, #818cf8, #60a5fa);
+  color: #3ec493;
 }
 
-/* Glassmorphism surface */
+/* Glassmorphism surface (kept for floating chrome: header, nav, modals) */
 .glass-surface {
-  background-color: rgba(255, 255, 255, 0.75);
+  background-color: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(226, 232, 240, 0.7);
+  border: 1px solid #e8e8e4;
 }
 
 .dark .glass-surface {
-  background-color: rgba(10, 13, 24, 0.7);
-  border-color: rgba(51, 65, 85, 0.4);
+  background-color: rgba(19, 22, 29, 0.82);
+  border-color: #262a33;
 }
 
 /* Hide native number input spinners (up/down arrows) */
@@ -144,8 +166,14 @@ body {
 }
 
 /* Focus ring for accessibility */
-.focus-ring:focus-visible {
-  outline: 2px solid #8b5cf6;
+.focus-ring:focus-visible,
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #0e9f6e;
   outline-offset: 2px;
 }
 
@@ -192,17 +220,17 @@ body {
   gap: 2px;
   min-height: calc(62px + env(safe-area-inset-bottom, 0px));
   padding: 6px 8px calc(8px + env(safe-area-inset-bottom, 0px));
-  background-color: rgba(255, 255, 255, 0.88);
+  background-color: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
-  border-top: 1px solid rgba(226, 232, 240, 0.8);
-  box-shadow: 0 -8px 24px -12px rgba(15, 23, 42, 0.14);
+  border-top: 1px solid #e8e8e4;
+  box-shadow: 0 -6px 20px -14px rgba(26, 28, 32, 0.16);
 }
 
 .dark .bottom-nav-inner {
-  background-color: rgba(8, 10, 18, 0.88);
-  border-top-color: rgba(51, 65, 85, 0.5);
-  box-shadow: 0 -8px 24px -12px rgba(0, 0, 0, 0.5);
+  background-color: rgba(11, 13, 18, 0.9);
+  border-top-color: #262a33;
+  box-shadow: 0 -6px 20px -14px rgba(0, 0, 0, 0.6);
 }
 
 .bottom-nav-item {
@@ -233,26 +261,21 @@ body {
   transition: color 0.2s ease;
 }
 
-/* Active: theme-colored icon with soft glow, gradient label + short bar above the item */
+/* Active: flat green icon + label with a short green bar above the item. */
 .bottom-nav-active .bottom-nav-icon {
-  color: #6366f1;
-  filter: drop-shadow(0 0 6px rgba(99, 102, 241, 0.45));
+  color: #0e9f6e;
 }
 
 .dark .bottom-nav-active .bottom-nav-icon {
-  color: #818cf8;
-  filter: drop-shadow(0 0 6px rgba(129, 140, 248, 0.5));
+  color: #3ec493;
 }
 
 .bottom-nav-active .bottom-nav-label {
-  background-image: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #3b82f6 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: #0a7a54;
 }
 
 .dark .bottom-nav-active .bottom-nav-label {
-  background-image: linear-gradient(135deg, #a78bfa, #818cf8, #60a5fa);
+  color: #3ec493;
 }
 
 .bottom-nav-active::before {
@@ -264,11 +287,11 @@ body {
   width: 70%;
   height: 3px;
   border-radius: 9999px;
-  background-image: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #3b82f6 100%);
+  background-color: #0e9f6e;
 }
 
 .dark .bottom-nav-active::before {
-  background-image: linear-gradient(135deg, #a78bfa, #818cf8, #60a5fa);
+  background-color: #3ec493;
 }
 
 /* Custom responsiveness rules */
@@ -300,7 +323,7 @@ html.assistant-locked {
 }
 .pie-slice:hover {
   transform: scale(1.07);
-  filter: brightness(1.05) drop-shadow(0 0 6px rgba(139, 92, 246, 0.4));
+  filter: brightness(1.05);
 }
 
 .pie-dim {
@@ -327,6 +350,11 @@ html.assistant-locked {
   .animate-pie-sweep {
     animation: none;
   }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Number alignment for financial figures */
@@ -334,17 +362,34 @@ html.assistant-locked {
   font-variant-numeric: tabular-nums;
 }
 
-/* Soft glow orb used on hero cards */
+/* Soft glow orb used on hero cards — removed from the identity. */
 .glow-orb {
-  position: absolute;
-  border-radius: 9999px;
-  filter: blur(48px);
-  pointer-events: none;
+  display: none;
 }
 
 /* Conic gradient loading ring */
 .bg-conic-brand {
-  background: conic-gradient(from 0deg, rgba(139, 92, 246, 0.15), #8b5cf6 55%, #3b82f6);
+  background: conic-gradient(from 0deg, rgba(23, 168, 118, 0.15), #0e9f6e 55%, #3ec493);
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+}
+
+/* The SnapSpend line-mark logo — five thin bars in the category colors. */
+.logo-mark {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* Flat statement-green primary button. */
+.btn-primary {
+  background-color: #0e9f6e;
+  color: #ffffff;
+  transition: background-color 0.2s ease;
+}
+.btn-primary:hover {
+  background-color: #0b8a5e;
+}
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }

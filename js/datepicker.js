@@ -105,7 +105,7 @@ function render(inst) {
             'w-7',
         ];
         if (isSelected) {
-            classList.push('bg-brand-gradient', 'text-white', 'font-bold', 'shadow-md', 'shadow-indigo-500/25');
+            classList.push('bg-brand-gradient', 'text-white', 'font-bold');
         } else {
             classList.push('text-slate-700', 'dark:text-slate-200');
             if (isToday) classList.push('border', 'border-brand-400', 'dark:border-brand-500', 'font-semibold', 'text-brand-600', 'dark:text-brand-300');

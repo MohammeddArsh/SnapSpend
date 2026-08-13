@@ -456,23 +456,21 @@ export async function render(container, selectedMonth) {
                 <!-- Header Actions -->
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
-                        <span class="text-[11px] uppercase font-black text-brand-600 dark:text-brand-400 tracking-widest">Spending Tracker</span>
-                        <h2 class="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white">Expenses</h2>
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1.5">Track and categorize spending for ${getMonthName(selectedMonth)}.</p>
+<span class="eyebrow text-brand-600 dark:text-brand-400 block">Monthly Expenses Log</span>
+                        <h2 class="font-display text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">Expenses</h2>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
                         <button id="btn-import-csv" class="px-3.5 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer">
                             <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i> Import CSV
                         </button>
-                        <button id="btn-add-expense" class="px-4 py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer">
+                        <button id="btn-add-expense" class="px-4 py-2.5 btn-primary text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer">
                             <i data-lucide="plus" class="w-4 h-4"></i> Add Entry
                         </button>
                     </div>
                 </div>
 
                 <!-- Monthly Total banner -->
-                <div class="relative overflow-hidden rounded-3xl bg-brand-gradient-soft dark:bg-brand-950/20 border border-brand-100 dark:border-brand-900/50 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 select-none">
-                    <div class="glow-orb w-40 h-40 bg-rose-400/20 -top-20 -right-10"></div>
+                <div class="relative overflow-hidden rounded-2xl bg-brand-gradient-soft border border-brand-100 dark:border-brand-900/50 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 select-none">
                     <div class="flex items-center gap-3">
                         <div class="bg-white dark:bg-slate-900/60 p-2.5 rounded-xl text-rose-500 dark:text-rose-400 shadow-sm">
                             <i data-lucide="arrow-down-left" class="w-5 h-5"></i>
@@ -500,9 +498,9 @@ export async function render(container, selectedMonth) {
                 </div>
 
                 <!-- Category Filter Pill Bar -->
-                <div class="space-y-2 select-none">
+<div class="space-y-2 select-none my-3">
                     <div class="flex items-center justify-between">
-                        <label class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Filter by Category</label>
+                        <label class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Filter by Category</label>
                         <span id="active-filter-label" class="text-[11px] text-slate-400 dark:text-slate-500 font-medium">Showing: All</span>
                     </div>
 
@@ -510,9 +508,9 @@ export async function render(container, selectedMonth) {
                         <!-- 'All' Reset Button -->
                         <button type="button"
                                 data-category-filter="all"
-                                class="category-filter-btn active px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border bg-brand-gradient border-transparent text-white shadow-md shadow-indigo-500/25 cursor-pointer flex items-center gap-1.5">
+                                class="category-filter-btn active px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border btn-primary cursor-pointer flex items-center gap-1.5">
                             <span>All Categories</span>
-                            <span class="px-1.5 py-0.5 text-[11px] bg-white/20 text-white rounded-full font-mono">${displayRows.length}</span>
+                            <span class="px-1.5 py-0.2 text-[11px] bg-white/20 text-white rounded-full font-mono">${displayRows.length}</span>
                         </button>
 
                         <!-- Dynamic Category Filter Buttons -->
@@ -530,7 +528,7 @@ export async function render(container, selectedMonth) {
                                         class="category-filter-btn px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border bg-slate-100/80 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-white cursor-pointer flex items-center gap-1.5">
                                     <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${catColor}"></span>
                                     <span>${escapeHTML(cat.name)}</span>
-                                    <span class="px-1.5 py-0.5 text-[11px] bg-slate-200/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-full font-mono">${count}</span>
+                                    <span class="px-1.5 py-0.2 text-[11px] bg-slate-200/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-full font-mono">${count}</span>
                                 </button>
                             `;
                         }).join('')}
@@ -845,7 +843,7 @@ function openExpenseModal(entry, categories, selectedMonth, classifier, training
     const html = `
         <div class="p-1">
             <div class="flex items-center gap-3 mb-5">
-                <span class="bg-brand-gradient p-2.5 rounded-xl text-white shadow-lg shadow-indigo-500/30">
+                <span class="bg-brand-gradient p-2.5 rounded-xl text-white">
                     <i data-lucide="${isEdit ? 'edit-3' : 'plus-circle'}" class="w-4 h-4"></i>
                 </span>
                 <div>
@@ -862,7 +860,7 @@ function openExpenseModal(entry, categories, selectedMonth, classifier, training
                             <i data-lucide="scan" class="w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0"></i>
                             <span>Scan Receipt (AI Auto-fill)</span>
                         </div>
-                        <button type="button" id="btn-scan-receipt" class="px-3.5 py-1.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-indigo-500/25">
+                        <button type="button" id="btn-scan-receipt" class="px-3.5 py-1.5 btn-primary text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer">
                             <i data-lucide="camera" class="w-3.5 h-3.5" id="scan-receipt-icon"></i>
                             <span id="scan-receipt-btn-text">Scan Receipt</span>
                         </button>
@@ -892,8 +890,8 @@ function openExpenseModal(entry, categories, selectedMonth, classifier, training
 
                 <div class="grid grid-cols-2 gap-3 pt-2">
                     <button type="button" id="btn-cancel-modal" class="py-2.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer">Cancel</button>
-                    <button type="submit" class="py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-1.5 cursor-pointer">
-                        <i data-lucide="check" class="w-3.5 h-3.5"></i> Save Expense
+<button type="submit" class="py-2.5 btn-primary text-white rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                        <i data-lucide="check" class="w-3.5 h-3.5"></i> Save Expense Record
                     </button>
                 </div>
             </form>
@@ -1123,7 +1121,7 @@ function openCsvImportModal(categories, selectedMonth, classifier) {
     const html = `
         <div class="p-1">
             <div class="flex items-start gap-3 mb-5">
-                <span class="bg-brand-gradient p-2.5 rounded-xl text-white shadow-lg shadow-indigo-500/30">
+                <span class="bg-brand-gradient p-2.5 rounded-xl text-white">
                     <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
                 </span>
                 <div class="grow">
@@ -1173,8 +1171,8 @@ function openCsvImportModal(categories, selectedMonth, classifier) {
                     </div>
                 </div>
 
-                <button type="button" id="btn-process-mapped" class="w-full py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-500/25 transition-all cursor-pointer">
-                    Review Entries
+<button type="button" id="btn-process-mapped" class="w-full py-2.5 btn-primary text-white rounded-xl text-xs font-semibold transition-all cursor-pointer">
+                    Compile Mapping List
                 </button>
             </div>
 
@@ -1192,8 +1190,8 @@ function openCsvImportModal(categories, selectedMonth, classifier) {
 
                 <div class="grid grid-cols-2 gap-3 pt-2">
                     <button type="button" id="btn-cancel-import" class="py-2.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer">Cancel</button>
-                    <button id="btn-publish-imported" class="py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-1.5 cursor-pointer">
-                        <i data-lucide="cloud-lightning" class="w-3.5 h-3.5"></i> Import 0 entries
+<button id="btn-publish-imported" class="py-2.5 btn-primary text-white rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                        <i data-lucide="cloud-lightning" class="w-3.5 h-3.5"></i> Publish statement (0 entries)
                     </button>
                 </div>
             </div>
@@ -1402,7 +1400,7 @@ function openEditSingleItemModal(rowItem, categories, selectedMonth) {
     const html = `
         <div id="edit-item-modal-container" class="p-1">
             <div class="flex items-center gap-3 mb-5">
-                <span class="bg-brand-gradient p-2.5 rounded-xl text-white shadow-lg shadow-indigo-500/30">
+                <span class="bg-brand-gradient p-2.5 rounded-xl text-white">
                     <i data-lucide="edit-3" class="w-4 h-4"></i>
                 </span>
                 <div>
@@ -1432,9 +1430,7 @@ function openEditSingleItemModal(rowItem, categories, selectedMonth) {
                 </div>
                 <div class="flex items-center justify-between gap-3 pt-2">
                     <button type="button" id="btn-cancel-edit-item" class="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-all cursor-pointer">Cancel</button>
-                    <button type="submit" class="px-5 py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-md shadow-indigo-500/25 flex items-center gap-1.5">
-                        <i data-lucide="check" class="w-3.5 h-3.5"></i> Save Item
-                    </button>
+<button type="submit" class="px-5 py-2.5 btn-primary text-white rounded-xl text-xs font-semibold transition-all cursor-pointer">Save Changes</button>
                 </div>
             </form>
         </div>
@@ -1529,7 +1525,7 @@ function setupCategoryFilterDelegation() {
 
         // 1. Update Active UI Styling for Buttons
         filterButtons.forEach(b => {
-            b.classList.remove('bg-brand-gradient', 'border-transparent', 'text-white', 'shadow-md', 'shadow-indigo-500/25', 'active');
+            b.classList.remove('btn-primary', 'border-transparent', 'text-white', 'active');
             b.classList.add('bg-slate-100/80', 'border-slate-200', 'text-slate-600', 'dark:bg-slate-800/70', 'dark:border-slate-700', 'dark:text-slate-300');
             
             const badge = b.querySelector('span:last-child');
@@ -1540,7 +1536,7 @@ function setupCategoryFilterDelegation() {
 
         // Set active styles on clicked button
         btn.classList.remove('bg-slate-100/80', 'border-slate-200', 'text-slate-600', 'dark:bg-slate-800/70', 'dark:border-slate-700', 'dark:text-slate-300');
-        btn.classList.add('bg-brand-gradient', 'border-transparent', 'text-white', 'shadow-md', 'shadow-indigo-500/25', 'active');
+        btn.classList.add('btn-primary', 'border-transparent', 'text-white', 'active');
         
         const activeBadge = btn.querySelector('span:last-child');
         if (activeBadge) {
@@ -1607,7 +1603,7 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
         <div class="space-y-4 select-none flex-1 flex flex-col min-h-0">
             <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
                 <div class="flex items-center gap-3">
-                    <div class="bg-brand-gradient p-2.5 rounded-xl text-white shadow-lg shadow-indigo-500/30">
+                    <div class="bg-brand-gradient p-2.5 rounded-xl text-white">
                         <i data-lucide="receipt" class="w-5 h-5"></i>
                     </div>
                     <div>
@@ -1678,8 +1674,8 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
                 <button type="button" id="btn-cancel-itemized" class="px-4 py-2.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer">
                     Cancel
                 </button>
-                <button type="button" id="btn-save-itemized-expense" class="px-5 py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/25 transition-all flex items-center gap-1.5 cursor-pointer">
-                    <i data-lucide="check" class="w-3.5 h-3.5"></i> Save Receipt
+<button type="button" id="btn-save-itemized-expense" class="px-5 py-2.5 btn-primary text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer">
+                    <i data-lucide="check" class="w-4 h-4"></i> Save Itemized Expense
                 </button>
             </div>
         </div>

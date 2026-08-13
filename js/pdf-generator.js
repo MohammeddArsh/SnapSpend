@@ -9,12 +9,12 @@ const RIGHT = PAGE_WIDTH - MARGIN;
 
 // Minimal clean palette. Colours are passed as hex strings only — jsPDF v4
 // rejects array colour arguments (throws "Invalid argument passed to jsPDF.f2").
-const INK = '#0f172a';
-const MUTED = '#64748b';
-const FAINT = '#94a3b8';
-const HAIRLINE = '#e2e8f0';
-const PANEL = '#f8fafc';
-const GOOD = '#059669';
+const INK = '#1a1c20';
+const MUTED = '#5f6470';
+const FAINT = '#8a90a0';
+const HAIRLINE = '#e8e8e4';
+const PANEL = '#fafaf8';
+const GOOD = '#0e9f6e';
 const BAD = '#e11d48';
 
 const FONT = 'helvetica';
@@ -84,18 +84,27 @@ export function generatePDFReport(data) {
 }
 
 function drawHeader(doc, monthLabel, generatedAt) {
-    // Logo mark: solid ink badge with a white S
-    doc.setFillColor(INK);
-    doc.roundedRect(MARGIN, 15, 5.5, 5.5, 1.2, 1.2, 'F');
-    doc.setTextColor('#ffffff');
-    doc.setFont(FONT, 'bold');
-    doc.setFontSize(9);
-    doc.text('S', MARGIN + 2.75, 19.7, { align: 'center' });
+    // Line-mark logo: five thin bars in the category colours, like the app mark.
+    const bars = [
+        { c: '#10b981', h: 2.2 },
+        { c: '#0ea5e9', h: 3.6 },
+        { c: '#8b5cf6', h: 2.9 },
+        { c: '#f59e0b', h: 4.6 },
+        { c: '#64748b', h: 3.8 }
+    ];
+    const barW = 0.9;
+    const gap = 0.45;
+    let bx = MARGIN;
+    bars.forEach((bar) => {
+        doc.setFillColor(bar.c);
+        doc.rect(bx, 20.5 - bar.h, barW, bar.h, 'F');
+        bx += barW + gap;
+    });
 
     doc.setTextColor(INK);
     doc.setFont(FONT, 'bold');
     doc.setFontSize(12);
-    doc.text('SnapSpend', MARGIN + 9, 20);
+    doc.text('SnapSpend', bx + 1.2, 20);
 
     doc.setTextColor(INK);
     doc.setFont(FONT, 'bold');

@@ -156,28 +156,26 @@ export async function render(container, selectedMonth) {
                 <!-- Header Titles & Download PDF Action -->
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                        <span class="text-[11px] uppercase font-black text-brand-600 dark:text-brand-400 tracking-widest">Monthly Ledger Report</span>
-                        <h2 class="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white">Reports Analysis</h2>
+                        <span class="eyebrow text-brand-600 dark:text-brand-400 block">Monthly Ledger Report</span>
+                        <h2 class="font-display text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">Reports Analysis</h2>
                         <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Aggregated finance snapshot scoped to ${monthLabel} in EUR (€)</p>
                     </div>
-                    <button type="button" id="btn-download-pdf-report" class="self-start sm:self-auto px-4 py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer">
+                    <button type="button" id="btn-download-pdf-report" class="self-start sm:self-auto px-4 py-2.5 btn-primary text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer">
                         <i data-lucide="download" class="w-4 h-4" id="pdf-download-icon"></i>
                         <span id="pdf-download-btn-text">Download PDF</span>
                     </button>
                 </div>
 
                 <!-- Net Savings Hero Banner -->
-                <div class="relative overflow-hidden rounded-3xl bg-brand-gradient text-white shadow-2xl shadow-indigo-500/30 p-6 sm:p-7">
-                    <div class="glow-orb w-40 h-40 bg-white/20 -top-16 -right-16"></div>
-                    <div class="glow-orb w-24 h-24 bg-fuchsia-400/40 -bottom-10 -left-10"></div>
+                <div class="panel-ink p-6 sm:p-7">
                     <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-5 select-none">
                         <div>
-                            <span class="text-[11px] uppercase font-bold text-white/70 tracking-widest">Monthly Net Savings</span>
+                            <span class="eyebrow text-white/50">Monthly Net Savings</span>
                             <div class="text-3xl sm:text-4xl font-mono font-bold text-white tracking-tight tabular mt-1.5">${formatCurrency(savings)}</div>
-                            <p class="text-[11px] text-white/70 mt-1.5">Unallocated cash remaining after expenses in ${monthLabel}</p>
+                            <p class="text-[11px] text-white/50 mt-1.5">Unallocated cash remaining after expenses in ${monthLabel}</p>
                         </div>
                         <div>
-                            <span class="text-[11px] text-white/70 uppercase font-semibold tracking-wider block">Savings Rate</span>
+                            <span class="eyebrow text-white/50 block">Savings Rate</span>
                             <div class="text-3xl font-mono font-bold text-white tabular mt-1">${savingsRate.toFixed(0)}%</div>
                         </div>
                     </div>

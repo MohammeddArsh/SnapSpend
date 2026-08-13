@@ -88,6 +88,7 @@ async function handleAuthChange(user) {
     currentUser = user;
     if (user) {
         showSetupOverlay(false);
+        document.querySelector('header')?.classList.remove('hidden');
         document.getElementById('month-navigation-ribbon').classList.remove('hidden');
         document.getElementById('btn-logout').classList.remove('hidden');
         document.getElementById('btn-dev-tools')?.classList.remove('hidden');
@@ -269,13 +270,13 @@ export async function navigateTo(viewName) {
     } catch (e) {
         console.error("Navigation routing failure:", e);
         appContent.innerHTML = `
-            <div class="bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/60 rounded-3xl p-8 text-center max-w-md mx-auto my-10 animate-fade-in">
+            <div class="bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/60 rounded-2xl p-8 text-center max-w-md mx-auto my-10 animate-fade-in">
                 <div class="bg-rose-100 dark:bg-rose-900/50 w-14 h-14 rounded-2xl text-rose-500 flex items-center justify-center mx-auto mb-4">
                     <i data-lucide="alert-octagon" class="w-7 h-7"></i>
                 </div>
                 <h3 class="font-bold text-rose-800 dark:text-rose-200 text-base">Module Failed to Load</h3>
                 <p class="text-xs text-rose-700/70 dark:text-rose-300/70 mt-1">${escapeHTML(e.message)}</p>
-                <button onclick="window.location.reload()" class="mt-5 px-5 py-2.5 bg-brand-gradient text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/25 cursor-pointer">Retry Refresh</button>
+                <button onclick="window.location.reload()" class="mt-5 px-5 py-2.5 btn-primary text-white rounded-xl text-xs font-semibold cursor-pointer">Retry Refresh</button>
             </div>
         `;
     }
@@ -378,7 +379,7 @@ function setupThemeToggle() {
         if (icon) icon.setAttribute('data-lucide', dark ? 'sun' : 'moon');
         if (window.lucide) window.lucide.createIcons();
         const meta = document.getElementById('meta-theme-color');
-        if (meta) meta.setAttribute('content', dark ? '#080a12' : '#f6f7fb');
+        if (meta) meta.setAttribute('content', dark ? '#0b0d12' : '#fafaf8');
         try { localStorage.setItem('snapspend-theme', dark ? 'dark' : 'light'); } catch (e) {}
     };
 
@@ -505,7 +506,7 @@ function triggerSalaryDraftCreator(lastMonthSalary) {
     const modalContent = `
         <div class="p-1">
             <div class="flex items-center gap-3 mb-5">
-                <span class="bg-brand-gradient p-2.5 rounded-xl text-white shadow-lg shadow-indigo-500/30">
+                <span class="bg-brand-gradient p-2.5 rounded-xl text-white">
                     <i data-lucide="wallet" class="w-4 h-4"></i>
                 </span>
                 <div>
@@ -533,7 +534,7 @@ function triggerSalaryDraftCreator(lastMonthSalary) {
                 </div>
                 <div class="grid grid-cols-2 gap-3 pt-2">
                     <button type="button" id="btn-cancel-draft-modal" class="py-2.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer">Cancel</button>
-                    <button type="submit" class="py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                    <button type="submit" class="py-2.5 btn-primary text-white rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer">
                         <i data-lucide="check" class="w-3.5 h-3.5"></i> Save Salary Record
                     </button>
                 </div>
@@ -581,41 +582,52 @@ function triggerSalaryDraftCreator(lastMonthSalary) {
  */
 function renderAuthScreen(customErrorMsg = "") {
     const el = document.getElementById('app-content');
+    // The login page is full-bleed: no top bar, no theme toggle.
+    document.querySelector('header')?.classList.add('hidden');
     el.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 max-w-4xl mx-auto my-6 md:my-14 items-stretch animate-fade-in">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 max-w-4xl mx-auto my-6 md:my-14 md:items-start animate-fade-in">
             <!-- Brand Panel -->
-            <div class="hidden md:flex flex-col justify-between relative overflow-hidden rounded-3xl bg-brand-gradient p-8 text-white shadow-2xl shadow-indigo-500/30">
-                <div class="glow-orb w-64 h-64 bg-white/15 -top-20 -right-20"></div>
-                <div class="glow-orb w-48 h-48 bg-fuchsia-400/30 -bottom-16 -left-16"></div>
+            <div class="hidden md:flex flex-col justify-between panel-ink p-8 relative overflow-hidden md:min-h-[440px]">
                 <div class="relative z-10">
-                    <div class="bg-white/15 backdrop-blur-sm w-14 h-14 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-                        <i data-lucide="wallet" class="w-7 h-7"></i>
+                    <div class="flex items-center gap-2.5 mb-6">
+                        <svg class="logo-mark" width="34" height="20" viewBox="0 0 40 24" fill="none" aria-hidden="true">
+                            <rect x="3" y="12" width="5" height="9" rx="1.5" fill="#10b981"/>
+                            <rect x="10" y="7" width="5" height="14" rx="1.5" fill="#0ea5e9"/>
+                            <rect x="17" y="10" width="5" height="11" rx="1.5" fill="#8b5cf6"/>
+                            <rect x="24" y="3" width="5" height="18" rx="1.5" fill="#f59e0b"/>
+                            <rect x="31" y="6" width="5" height="15" rx="1.5" fill="#64748b"/>
+                        </svg>
+                        <span class="font-display text-lg font-bold tracking-tight text-white">SnapSpend</span>
                     </div>
-                    <h2 class="text-3xl font-black tracking-tight leading-tight">Your money,\nbeautifully managed.</h2>
-                    <p class="text-white/80 text-sm mt-3 leading-relaxed max-w-xs">Track income, scan receipts, and let AI answer anything about your spending.</p>
+                    <h2 class="font-display text-3xl font-bold tracking-tight leading-tight">Your money,<br />beautifully managed.</h2>
+                    <p class="text-white/60 text-sm mt-3 leading-relaxed max-w-xs">Track income, scan receipts, and let AI answer anything about your spending.</p>
                 </div>
-                <ul class="relative z-10 space-y-3 text-sm text-white/90">
+                <ul class="relative z-10 space-y-3 text-sm text-white/85">
                     <li class="flex items-center gap-2.5">
-                        <span class="bg-white/15 rounded-lg p-1.5"><i data-lucide="scan-line" class="w-4 h-4"></i></span>
+                        <span class="border border-white/20 rounded-lg p-1.5"><i data-lucide="scan-line" class="w-4 h-4"></i></span>
                         Smart receipt scanning
                     </li>
                     <li class="flex items-center gap-2.5">
-                        <span class="bg-white/15 rounded-lg p-1.5"><i data-lucide="bot" class="w-4 h-4"></i></span>
+                        <span class="border border-white/20 rounded-lg p-1.5"><i data-lucide="bot" class="w-4 h-4"></i></span>
                         AI spending assistant
                     </li>
                     <li class="flex items-center gap-2.5">
-                        <span class="bg-white/15 rounded-lg p-1.5"><i data-lucide="pie-chart" class="w-4 h-4"></i></span>
+                        <span class="border border-white/20 rounded-lg p-1.5"><i data-lucide="pie-chart" class="w-4 h-4"></i></span>
                         Insightful monthly analytics
                     </li>
                 </ul>
             </div>
 
             <!-- Form Card -->
-            <div class="glass-surface rounded-3xl p-6 sm:p-8 shadow-2xl shadow-slate-900/10 dark:shadow-black/40 border border-slate-200/60 dark:border-slate-700/50">
+            <div class="glass-surface rounded-2xl p-6 sm:p-8 shadow-2xl shadow-slate-900/10 dark:shadow-black/40 border border-slate-200/60 dark:border-slate-700/50">
                 <div class="text-center mb-6 md:hidden">
-                    <div class="bg-brand-gradient w-14 h-14 rounded-2xl text-white flex items-center justify-center mx-auto mb-3 shadow-lg shadow-indigo-500/30">
-                        <i data-lucide="wallet" class="w-7 h-7"></i>
-                    </div>
+                    <svg class="logo-mark mx-auto mb-3" width="42" height="24" viewBox="0 0 40 24" fill="none" aria-hidden="true">
+                        <rect x="3" y="12" width="5" height="9" rx="1.5" fill="#10b981"/>
+                        <rect x="10" y="7" width="5" height="14" rx="1.5" fill="#0ea5e9"/>
+                        <rect x="17" y="10" width="5" height="11" rx="1.5" fill="#8b5cf6"/>
+                        <rect x="24" y="3" width="5" height="18" rx="1.5" fill="#f59e0b"/>
+                        <rect x="31" y="6" width="5" height="15" rx="1.5" fill="#64748b"/>
+                    </svg>
                 </div>
                 <div class="mb-6">
                     <h2 class="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Welcome back</h2>
@@ -645,7 +657,7 @@ function renderAuthScreen(customErrorMsg = "") {
                     <div id="turnstile-widget" class="pt-1"></div>
 
                     <div class="pt-2">
-                        <button type="submit" id="btn-auth-submit" class="w-full py-2.5 bg-brand-gradient hover:brightness-110 text-white rounded-xl font-semibold shadow-lg shadow-indigo-500/25 transition-all text-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                        <button type="submit" id="btn-auth-submit" class="w-full py-2.5 btn-primary text-white rounded-xl font-semibold transition-all text-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
                             <i data-lucide="log-in" class="w-4 h-4"></i> Sign In to Account
                         </button>
                     </div>

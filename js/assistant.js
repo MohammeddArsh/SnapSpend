@@ -44,11 +44,11 @@ export async function render(container, selectedMonth) {
         <div id="assistant-chat" class="max-w-3xl mx-auto flex flex-col overflow-hidden">
             <!-- Assistant Header -->
             <div class="flex items-center gap-3 pb-3">
-                <div class="bg-brand-gradient p-2.5 rounded-xl text-white shadow-lg shadow-indigo-500/30">
+                <div class="bg-brand-gradient p-2.5 rounded-xl text-white">
                     <i data-lucide="bot" class="w-5 h-5"></i>
                 </div>
                 <div>
-                    <h2 class="text-xl font-black tracking-tight text-slate-900 dark:text-white leading-none">AI Expense Assistant</h2>
+                    <h2 class="font-display text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-none">AI Expense Assistant</h2>
                     <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Ask anything about your spending.</p>
                 </div>
             </div>
@@ -70,8 +70,8 @@ export async function render(container, selectedMonth) {
 
             <!-- Composer -->
             <div class="glass-surface dark:bg-slate-900/70 border border-slate-200/70 dark:border-slate-700/60 rounded-2xl p-2.5 shadow-lg shadow-slate-900/5 dark:shadow-black/30 flex items-end gap-2">
-                <textarea id="assistant-input" rows="1" placeholder="Ask about your spending…" class="flex-1 resize-none outline-none text-sm px-2 py-1.5 max-h-32 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 bg-transparent"></textarea>
-                <button id="assistant-send" class="shrink-0 bg-brand-gradient hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl px-4 py-2.5 text-xs font-semibold shadow-lg shadow-indigo-500/25 transition-all flex items-center gap-1.5 cursor-pointer">
+<textarea id="assistant-input" rows="1" placeholder="Ask anything about your expenses..." class="flex-1 resize-none outline-none text-sm px-2 py-1.5 max-h-32 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 bg-transparent"></textarea>
+                <button id="assistant-send" class="shrink-0 btn-primary disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl px-4 py-2.5 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer">
                     <i data-lucide="send" class="w-4 h-4"></i> Ask
                 </button>
             </div>
@@ -137,7 +137,7 @@ function bindAssistantEvents() {
 function buildUserBubble(question) {
     return `
         <div class="flex justify-end animate-fade-in">
-            <div class="max-w-[85%] bg-brand-gradient text-white rounded-2xl rounded-br-md px-4 py-2.5 text-xs leading-relaxed shadow-lg shadow-indigo-500/25">
+            <div class="max-w-[85%] bg-brand-gradient text-white rounded-2xl rounded-br-md px-4 py-2.5 text-xs leading-relaxed">
                 ${escapeHTML(question)}
             </div>
         </div>
