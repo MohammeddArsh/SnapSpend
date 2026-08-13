@@ -177,6 +177,14 @@ textarea:focus-visible,
   outline-offset: 2px;
 }
 
+/* The chat composer keeps a clean look when clicked — no green focus box. */
+#assistant-chat textarea:focus-visible,
+#assistant-chat button:focus-visible,
+#assistant-chat [tabindex]:focus-visible {
+  outline: none;
+  outline-offset: 0;
+}
+
 /* Hide scrollbar on modern browsers but preserve interactive panning */
 .no-scrollbar::-webkit-scrollbar {
   display: none;

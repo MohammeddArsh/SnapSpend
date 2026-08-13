@@ -50,6 +50,7 @@ ehthumbs.db
 
 # Session transcripts
 session-*.md
+ui_changes.md
 
 # Local AI agent skills & skill lockfile
 .agents/

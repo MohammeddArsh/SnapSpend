@@ -1,11 +1,34 @@
 import { supabase } from './supabase.js';
 import { currentUser } from './app.js';
-import { mapToCanonical } from './categories.js';
+import {
+    OUT_OF_SCOPE_PHRASE,
+    todayParts,
+    buildSystemPrompt,
+    QUERY_EXPENSES_TOOL,
+    CATEGORY_BREAKDOWN_TOOL,
+    FINANCIAL_SUMMARY_TOOL,
+    MONTH_OVER_MONTH_TOOL,
+    YEARLY_STATS_TOOL,
+    CATEGORY_TRENDS_TOOL,
+    CATEGORY_COUNT_TOOL,
+    CATEGORY_MAPPING_TOOL,
+    ALL_TOOL_DECLARATIONS,
+} from './assistantPrompt.js';
+import {
+    categoryTotalsForExpenses,
+    countExpenseItems,
+    buildMonthlySummary,
+    compareMonthSnapshots,
+    buildYearlyStats,
+    categoryTrends,
+    aggregateExpenses,
+    aggregateIncome,
+} from './assistantStats.js';
+import { resolveCanonicalCategory } from './categoryMapping.js';
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const MODEL = 'gemini-3.1-flash-lite';
-const MAX_TOOL_ROUNDS = 3;
-const OUT_OF_SCOPE_PHRASE = "I can't answer questions outside of my scope";
+const MAX_TOOL_ROUNDS = 4;
 
 const ALLOWED_TABLES = new Set([
     "expense_entries", "expense_categories", "expense_receipt_items",
@@ -14,222 +37,31 @@ const ALLOWED_TABLES = new Set([
 
 const ALLOWED_OPERATORS = new Set(["eq", "neq", "gt", "gte", "lt", "lte", "like", "ilike", "in", "is"]);
 
-function todayParts() {
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, "0");
-    const dd = String(now.getDate()).padStart(2, "0");
-    return { yearMonth: `${yyyy}-${mm}`, isoDate: `${yyyy}-${mm}-${dd}`, year: String(yyyy) };
-}
-
-const { yearMonth, isoDate, year } = todayParts();
+// Refreshed at the start of every request so the executors' "this month / this
+// year" defaults always match the system prompt the model just saw.
+let today = todayParts();
+let currentContext = { page: 'assistant', selectedMonth: '' };
 
 // Conversation memory: persists across page switches (module scope). Keyed to
 // the signed-in user so a different account starts with a clean context.
 let conversationUserId = null;
 let conversationContents = [];
 
-const SYSTEM_PROMPT = `
-You are the SnapSpend expense assistant: a friendly, precise assistant that answers
-questions about the CURRENT USER'S personal finance data stored in the database.
-
-SCOPE — read this carefully:
-- You may ONLY answer questions about the user's own expenses, income, categories,
-  merchants and receipt line items. Everything else is OUT OF SCOPE.
-- For ANY out-of-scope question, respond with EXACTLY this phrase and nothing else:
-  "${OUT_OF_SCOPE_PHRASE}"
-- Never call the tool for out-of-scope questions.
-
-TOOL USAGE — for in-scope questions you MUST:
-1. For ANY question about money totals, "how much did I spend...", or spending
-   per/by category, call the \`category_breakdown\` tool FIRST. It returns the
-   exact per-category totals the app's Dashboard shows — always trust its numbers.
-2. For questions about savings, savings rate, net income/expenses, "how much of
-   my income is being saved", or income earned, call the \`financial_summary\`
-   tool FIRST. It returns income, expenses, savings and savings rate in one row
-   and matches the Dashboard's Net Savings card.
-3. For detail questions (biggest expense, lists of purchases, merchants, dates,
-   receipt items) call the \`query_expenses\` tool with structured parameters.
-4. Always wait for the returned rows.
-5. Answer ONLY from those rows. Never invent or estimate numbers.
-6. If a tool returns no rows, say there is no matching data.
-
-TABLES AND COLUMNS:
-- expense_entries: id, amount, date, month ('YYYY-MM'), merchant, note, currency, entry_type, created_at
-- expense_categories: id, name (Groceries, Pharmacy, Travel, Households, Miscellaneous)
-- expense_receipt_items: expense_id, item_name, quantity, unit_price, price, category
-- income_sources: id, name
-- income_entries: source_id, amount, date_credited, note, month ('YYYY-MM')
-
-RELATIONSHIPS:
-- expense_entries.category_id -> expense_categories.id
-- expense_receipt_items.expense_id -> expense_entries.id
-- income_entries.source_id -> income_sources.id
-
-NESTED SELECTORS (put inside columns):
-- expense_categories(name) to include the category name.
-- expense_receipt_items(item_name, price, category) to include receipt line items.
-- Filter on nested data with expense_categories.name, income_sources.name, etc.
-
-AGGREGATES (put inside columns):
-- amount.sum(), amount.avg(), id.count(). To group, include a plain column
-  (e.g. expense_categories(name)) next to the aggregate.
-- Order by aggregates with orderBy.field = "amount.sum()".
-
-FILTERS:
-- operators: eq, neq, gt, gte, lt, lte, like, ilike, in, is (for null).
-- Never filter on user_id — scoping is automatic.
-- Use month = '${yearMonth}' for this month and date >= '${isoDate}' for "today".
-- Today is ${isoDate}. This year is ${year}.
-
-FEW-SHOT EXAMPLES:
-Q: "How much did I spend on Groceries this month?"
-tool: { toolName: "category_breakdown", month: "${yearMonth}" }
-Then sum up the returned Groceries row.
-
-Q: "Show my spending per category this month"
-tool: { toolName: "category_breakdown", month: "${yearMonth}" }
-
-Q: "How much of my income is being saved this month?"
-tool: { toolName: "financial_summary", month: "${yearMonth}" }
-
-Q: "How much income did I earn this month?"
-tool: { toolName: "financial_summary", month: "${yearMonth}" }
-
-Q: "What was my biggest single expense this year?"
-tool: { toolName: "query_expenses", table: "expense_entries",
-        columns: ["amount", "date", "merchant", "expense_categories(name)"],
-        filters: [{ field: "date", operator: "gte", value: "${year}-01-01" }],
-        orderBy: { field: "amount", direction: "desc" }, limit: 1 }
-
-Q: "How much money did I spend in total this month?"
-tool: { toolName: "category_breakdown", month: "${yearMonth}" }
-Then sum up all returned amounts.
-
-Q: "Which pharmacy purchases were the most expensive?"
-tool: { toolName: "query_expenses", table: "expense_entries",
-        columns: ["amount", "date", "merchant", "note"],
-        filters: [{ field: "expense_categories.name", operator: "eq", value: "Pharmacy" }],
-        orderBy: { field: "amount", direction: "desc" }, limit: 10 }
-
-ANSWER STYLE — PLAIN TEXT, no Markdown:
-- Write in plain conversational text. Never use Markdown symbols such as
-  asterisks (*), double asterisks (**), hashes (#), backticks, or bullet dashes.
-- For lists, use one item per line, e.g.:
-  Groceries: 58.98 EUR
-  Households: 7.65 EUR
-- Be concise: state the numbers, dates and category names from the rows.
-- 1–3 short sentences is ideal; a short line list is fine when it helps.
-- Never mention the tool or the query. Answer directly.
-- Do NOT print or copy the raw result rows back into your answer. Only ever
-  summarize the figures they contain.
-- Currencies are in EUR unless the user says otherwise.
-`;
-
-const QUERY_EXPENSES_TOOL = {
-    name: "query_expenses",
-    description:
-        "Executes a read-only query against the current user's SnapSpend finance data " +
-        "(expense_entries, expense_categories, expense_receipt_items, income_entries, " +
-        "income_sources) and returns the result rows. Call this tool for ANY question " +
-        "about the user's spending, income, totals, merchants, or categories. Queries " +
-        "are automatically scoped to the current user — never filter by user_id.",
-    parameters: {
-        type: "object",
-        properties: {
-            table: {
-                type: "string",
-                enum: ["expense_entries", "expense_categories", "expense_receipt_items", "income_entries", "income_sources"],
-                description: "The table to query.",
-            },
-            columns: {
-                type: "array",
-                items: { type: "string" },
-                description:
-                    "Columns to select. Nested selectors allowed, e.g. expense_categories(name), " +
-                    "expense_receipt_items(item_name, price, category). Aggregate selectors allowed, " +
-                    "e.g. amount.sum(), amount.avg(), id.count().",
-            },
-            filters: {
-                type: "array",
-                description: "Conditions combined with AND.",
-                items: {
-                    type: "object",
-                    properties: {
-                        field: { type: "string" },
-                        operator: {
-                            type: "string",
-                            enum: ["eq", "neq", "gt", "gte", "lt", "lte", "like", "ilike", "in", "is"],
-                        },
-                        value: { description: "Comparison value." },
-                    },
-                    required: ["field", "operator", "value"],
-                },
-            },
-            orderBy: {
-                type: "object",
-                properties: {
-                    field: { type: "string" },
-                    direction: { type: "string", enum: ["asc", "desc"] },
-                },
-            },
-            limit: {
-                type: "number",
-                description: "Maximum number of rows to return (1-50).",
-            },
-        },
-        required: ["table", "columns"],
-    },
-};
-
-const CATEGORY_BREAKDOWN_TOOL = {
-    name: "category_breakdown",
-    description:
-        "Returns the user's spending per category for a given month (or this month by " +
-        "default) as rows of { category, amount }. The numbers match the app's Dashboard " +
-        "'Expense by Category' view exactly: scanned receipts are split across their " +
-        "line-item categories and manual entries use their assigned category. Use this " +
-        "tool for ANY question about totals, 'how much did I spend', or spending per/by " +
-        "category. The query is automatically scoped to the current user.",
-    parameters: {
-        type: "object",
-        properties: {
-            month: {
-                type: "string",
-                description: "Optional month in YYYY-MM format. Defaults to the current month.",
-            },
-        },
-    },
-};
-
-const FINANCIAL_SUMMARY_TOOL = {
-    name: "financial_summary",
-    description:
-        "Returns a single row { month, income, expenses, savings, savingsRate } for a given " +
-        "month (or this month by default). Income is the sum of manual income entries, expenses " +
-        "is the per-category spending total (scanned receipts split per line item), savings = " +
-        "income - expenses, and savingsRate is savings as a percentage of income. These figures " +
-        "match the app's Dashboard 'Net Savings' card exactly. Use this tool for ANY question " +
-        "about savings, savings rate, net income/expenses, how much of income is saved, or how " +
-        "much income was earned. Automatically scoped to the current user.",
-    parameters: {
-        type: "object",
-        properties: {
-            month: {
-                type: "string",
-                description: "Optional month in YYYY-MM format. Defaults to the current month.",
-            },
-        },
-    },
-};
-
-export async function askAssistantClient(question) {
+export async function askAssistantClient(question, context = {}) {
     if (!GEMINI_API_KEY) {
         return { error: "VITE_GEMINI_API_KEY is missing in your .env file. Add it and restart the dev server." };
     }
     if (!supabase || !currentUser) {
         return { error: "You are not signed in." };
     }
+
+    const now = new Date();
+    today = todayParts(now);
+    currentContext = {
+        page: typeof context.page === "string" ? context.page : 'assistant',
+        selectedMonth: typeof context.selectedMonth === "string" ? context.selectedMonth : '',
+    };
+    const systemPrompt = buildSystemPrompt({ page: currentContext.page, selectedMonth: currentContext.selectedMonth, now });
 
     if (conversationUserId !== currentUser.id) {
         conversationUserId = currentUser.id;
@@ -243,7 +75,7 @@ export async function askAssistantClient(question) {
     while (true) {
         let turn;
         try {
-            turn = await geminiTurn(contents);
+            turn = await geminiTurn(contents, systemPrompt);
         } catch (err) {
             return { error: err.message };
         }
@@ -293,13 +125,13 @@ export async function askAssistantClient(question) {
     }
 }
 
-async function geminiTurn(contents) {
+async function geminiTurn(contents, systemPrompt) {
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
     const payload = {
-        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        systemInstruction: { parts: [{ text: systemPrompt }] },
         contents,
-        tools: [{ functionDeclarations: [QUERY_EXPENSES_TOOL, CATEGORY_BREAKDOWN_TOOL, FINANCIAL_SUMMARY_TOOL] }],
+        tools: [{ functionDeclarations: ALL_TOOL_DECLARATIONS }],
         generationConfig: { temperature: 0.1 },
     };
 
@@ -335,20 +167,245 @@ async function geminiTurn(contents) {
 }
 
 async function executeTool(call) {
-    if (call.name === CATEGORY_BREAKDOWN_TOOL.name) {
-        return executeCategoryBreakdown(call.args || {});
+    switch (call.name) {
+        case CATEGORY_BREAKDOWN_TOOL.name:
+            return executeCategoryBreakdown(call.args || {});
+        case FINANCIAL_SUMMARY_TOOL.name:
+            return executeFinancialSummary(call.args || {});
+        case MONTH_OVER_MONTH_TOOL.name:
+            return executeMonthOverMonth(call.args || {});
+        case YEARLY_STATS_TOOL.name:
+            return executeYearlyStats(call.args || {});
+        case CATEGORY_TRENDS_TOOL.name:
+            return executeCategoryTrends(call.args || {});
+        case CATEGORY_COUNT_TOOL.name:
+            return executeCategoryCount(call.args || {});
+        case CATEGORY_MAPPING_TOOL.name:
+            return executeCategoryMapping(call.args || {});
+        default:
+            return executeQueryExpenses(call.args || {});
     }
-    if (call.name === FINANCIAL_SUMMARY_TOOL.name) {
-        return executeFinancialSummary(call.args || {});
-    }
-    return executeQueryExpenses(call.args || {});
 }
 
+function validMonth(value) {
+    return typeof value === "string" && /^\d{4}-\d{2}$/.test(value.trim()) ? value.trim() : "";
+}
+
+function validYear(value) {
+    return typeof value === "string" && /^\d{4}$/.test(value.trim()) ? value.trim() : "";
+}
+
+// ---------------------------------------------------------------------------
+// Expense/income fetching shared by the aggregated tools. Rows are returned in
+// the raw shape assistantStats expects (nested selectors preserved) so the
+// receipt-split category logic is identical to the Dashboard's.
+// ---------------------------------------------------------------------------
+async function fetchExpensesForPeriod(gteMonth, lteMonth) {
+    const { data, error } = await supabase
+        .from('expense_entries')
+        .select('amount, date, month, merchant, expense_categories(name), expense_receipt_items(category, price)')
+        .eq('user_id', currentUser.id)
+        .gte('month', gteMonth)
+        .lte('month', lteMonth);
+
+    if (error) return { error: `Query failed: ${error.message}` };
+    return { rows: Array.isArray(data) ? data : [] };
+}
+
+async function fetchIncomeForPeriod(gteMonth, lteMonth) {
+    const { data, error } = await supabase
+        .from('income_entries')
+        .select('amount, date_credited, month, income_sources(name)')
+        .eq('user_id', currentUser.id)
+        .gte('month', gteMonth)
+        .lte('month', lteMonth);
+
+    if (error) return { error: `Query failed: ${error.message}` };
+    return { rows: Array.isArray(data) ? data : [] };
+}
+
+// ---------------------------------------------------------------------------
+// category_breakdown: reproduces the Dashboard's "Expense by Category" numbers
+// exactly via categoryTotalsForExpenses (assistantStats.js).
+// ---------------------------------------------------------------------------
+async function executeCategoryBreakdown(args) {
+    const month = validMonth(args.month) || today.yearMonth;
+    const res = await fetchExpensesForPeriod(month, month);
+    if (res.error) return res;
+
+    const rows = Object.entries(categoryTotalsForExpenses(res.rows))
+        .map(([category, amount]) => ({ month, category, amount }))
+        .sort((a, b) => b.amount - a.amount);
+    return { rows };
+}
+
+// ---------------------------------------------------------------------------
+// category_count: per-category ITEM counts for a month, computed by
+// countExpenseItems — the exact same figures as the Expenses page counters.
+// ---------------------------------------------------------------------------
+async function executeCategoryCount(args) {
+    const month = validMonth(args.month) || today.yearMonth;
+    const category = typeof args.category === "string" ? args.category.trim() : "";
+
+    const res = await fetchExpensesForPeriod(month, month);
+    if (res.error) return res;
+
+    let rows = Object.entries(countExpenseItems(res.rows))
+        .map(([categoryName, count]) => ({ month, category: categoryName, count }))
+        .sort((a, b) => b.count - a.count);
+    if (category) {
+        rows = rows.filter((r) => r.category.toLowerCase() === category.toLowerCase());
+    }
+    return { rows };
+}
+
+// ---------------------------------------------------------------------------
+// category_mapping: maps a granular label to its broad canonical category via
+// resolveCanonicalCategory (same classification logic as receipt scanning).
+// ---------------------------------------------------------------------------
+async function executeCategoryMapping(args) {
+    const label = typeof args.label === "string" ? args.label.trim() : "";
+    if (!label) return { error: "label is required, e.g. 'milk' or 'clothes'." };
+    return { rows: [{ label, category: resolveCanonicalCategory(label) || 'Miscellaneous' }] };
+}
+
+// ---------------------------------------------------------------------------
+// financial_summary: income, expenses, savings and savings rate for a month,
+// computed by buildMonthlySummary (same figures as the Net Savings card).
+// ---------------------------------------------------------------------------
+async function executeFinancialSummary(args) {
+    const month = validMonth(args.month) || today.yearMonth;
+
+    const incomeRes = await fetchIncomeForPeriod(month, month);
+    if (incomeRes.error) return incomeRes;
+    const expRes = await fetchExpensesForPeriod(month, month);
+    if (expRes.error) return expRes;
+
+    const summary = buildMonthlySummary(incomeRes.rows, expRes.rows);
+    return { rows: [{
+        month,
+        income: summary.income,
+        expenses: summary.expenses,
+        savings: summary.savings,
+        savingsRate: summary.savingsRate,
+    }] };
+}
+
+// ---------------------------------------------------------------------------
+// month_over_month: compareMonthSnapshots across two months. Defaults primary
+// month to the app's selected month (then this month) and compareTo to the
+// calendar month before it — mirroring the Reports MoM matrix.
+// ---------------------------------------------------------------------------
+async function executeMonthOverMonth(args) {
+    let month = validMonth(args.month) || today.yearMonth;
+
+    let compareTo = validMonth(args.compareTo);
+    if (!compareTo) {
+        const [y, m] = month.split("-").map(Number);
+        const prev = m === 1 ? { y: y - 1, m: 12 } : { y, m: m - 1 };
+        compareTo = `${prev.y}-${String(prev.m).padStart(2, "0")}`;
+    }
+
+    const curExp = await fetchExpensesForPeriod(month, month);
+    if (curExp.error) return curExp;
+    const curInc = await fetchIncomeForPeriod(month, month);
+    if (curInc.error) return curInc;
+    const prevExp = await fetchExpensesForPeriod(compareTo, compareTo);
+    if (prevExp.error) return prevExp;
+    const prevInc = await fetchIncomeForPeriod(compareTo, compareTo);
+    if (prevInc.error) return prevInc;
+
+    const comparison = compareMonthSnapshots(
+        { month, incomeRows: curInc.rows, expenseRows: curExp.rows },
+        { month: compareTo, incomeRows: prevInc.rows, expenseRows: prevExp.rows }
+    );
+
+    const rows = [{
+        month,
+        compareTo,
+        income: `${comparison.deltas.income.current} (previous ${comparison.deltas.income.previous}, change ${comparison.deltas.income.absolute}${comparison.deltas.income.percent === null ? "" : `, ${comparison.deltas.income.percent}%`})`,
+        expenses: `${comparison.deltas.expenses.current} (previous ${comparison.deltas.expenses.previous}, change ${comparison.deltas.expenses.absolute}${comparison.deltas.expenses.percent === null ? "" : `, ${comparison.deltas.expenses.percent}%`})`,
+        savings: `${comparison.deltas.savings.current} (previous ${comparison.deltas.savings.previous}, change ${comparison.deltas.savings.absolute}${comparison.deltas.savings.percent === null ? "" : `, ${comparison.deltas.savings.percent}%`})`,
+        savingsRate: `${comparison.deltas.savingsRate.current}% (previous ${comparison.deltas.savingsRate.previous}%, change ${comparison.deltas.savingsRate.absolute} percentage points)`,
+        categoryChanges: Object.entries(comparison.categoryDeltas)
+            .map(([category, d]) => `${category}: ${d.current} (previous ${d.previous}, change ${d.absolute}${d.percent === null ? "" : `, ${d.percent}%`})`)
+            .join("; "),
+    }];
+    return { rows };
+}
+
+// ---------------------------------------------------------------------------
+// yearly_stats: buildYearlyStats rollup for a year (default current year).
+// ---------------------------------------------------------------------------
+async function executeYearlyStats(args) {
+    const year = validYear(args.year) || today.year;
+    const gte = `${year}-01`;
+    const lte = `${year}-12`;
+
+    const incomeRes = await fetchIncomeForPeriod(gte, lte);
+    if (incomeRes.error) return incomeRes;
+    const expRes = await fetchExpensesForPeriod(gte, lte);
+    if (expRes.error) return expRes;
+
+    const stats = buildYearlyStats(year, incomeRes.rows, expRes.rows);
+
+    const rows = [{
+        year,
+        income: stats.income,
+        expenses: stats.expenses,
+        savings: stats.savings,
+        savingsRate: `${stats.savingsRate}%`,
+        categoryTotals: Object.entries(stats.categoryTotals)
+            .map(([category, amount]) => `${category}: ${amount}`)
+            .join("; "),
+        highestSpendMonth: stats.highestSpendMonth
+            ? `${stats.highestSpendMonth.month} (${stats.highestSpendMonth.amount})`
+            : "none",
+        lowestSpendMonth: stats.lowestSpendMonth
+            ? `${stats.lowestSpendMonth.month} (${stats.lowestSpendMonth.amount})`
+            : "none",
+        months: stats.months.map((m) =>
+            `${m.month}: income ${m.income}, expenses ${m.expenses}, savings ${m.savings} (${m.savingsRate}%)`
+        ),
+    }];
+    return { rows };
+}
+
+// ---------------------------------------------------------------------------
+// category_trends: per-category monthly series for a period.
+// ---------------------------------------------------------------------------
+async function executeCategoryTrends(args) {
+    const year = validYear(args.year) || today.year;
+    const category = typeof args.category === "string" ? args.category.trim() : "";
+
+    const expRes = await fetchExpensesForPeriod(`${year}-01`, `${year}-12`);
+    if (expRes.error) return expRes;
+
+    let trends = categoryTrends(expRes.rows);
+    if (category) {
+        trends = trends.filter((t) => t.category.toLowerCase() === category.toLowerCase());
+    }
+
+    const rows = trends.map((t) => ({
+        category: t.category,
+        total: t.total,
+        months: t.months.map((m) => `${m.month}: ${m.amount}`).join(", "),
+    }));
+    return { rows };
+}
+
+// ---------------------------------------------------------------------------
+// query_expenses: generic raw query, plus a deterministic groupBy path.
+// ---------------------------------------------------------------------------
 async function executeQueryExpenses(args) {
     const table = args.table;
 
     if (!ALLOWED_TABLES.has(table)) {
         return { error: `Unknown table: ${table}. Allowed: ${[...ALLOWED_TABLES].join(", ")}` };
+    }
+
+    if (typeof args.groupBy === "string" && args.groupBy) {
+        return executeGroupedQuery(table, args);
     }
 
     const columns = Array.isArray(args.columns)
@@ -361,16 +418,7 @@ async function executeQueryExpenses(args) {
     let query = supabase.from(table).select(columns.join(","));
 
     if (Array.isArray(args.filters)) {
-        for (const f of args.filters) {
-            if (!f || typeof f.field !== "string") continue;
-            const op = ALLOWED_OPERATORS.has(f.operator || "eq") ? (f.operator || "eq") : "eq";
-            const value = f.value;
-            if (op === "is" && (value === null || value === undefined || value === "null")) {
-                query = query.is(f.field, null);
-            } else {
-                query = query[op](f.field, value);
-            }
-        }
+        query = applyFilters(query, args.filters);
     }
 
     if (args.orderBy && typeof args.orderBy.field === "string" && args.orderBy.field) {
@@ -389,76 +437,65 @@ async function executeQueryExpenses(args) {
     }
 }
 
-// ---------------------------------------------------------------------------
-// category_breakdown: reproduces the Dashboard's "Expense by Category" numbers
-// exactly (dashboard.js). Scanned receipts are split per line-item `price` and
-// canonical-mapped; manual entries fall back to their parent category amount.
-// ---------------------------------------------------------------------------
-async function executeCategoryBreakdown(args) {
-    const rawMonth = typeof args.month === "string" ? args.month.trim() : "";
-    const month = /^\d{4}-\d{2}$/.test(rawMonth) ? rawMonth : yearMonth;
+// Deterministic aggregation: fetches the full period rows, applies the model's
+// filters at the database level, then aggregates in JS with the exact same
+// rules as the Dashboard/Reports views. No math is left to the model.
+async function executeGroupedQuery(table, args) {
+    const groupBy = args.groupBy;
 
-    const { data, error } = await supabase
-        .from('expense_entries')
-        .select('amount, expense_categories(name), expense_receipt_items(category, price)')
-        .eq('user_id', currentUser.id)
-        .eq('month', month);
-
-    if (error) return { error: `Query failed: ${error.message}` };
-    if (!Array.isArray(data) || data.length === 0) return { rows: [] };
-
-    const totals = {};
-    data.forEach((item) => {
-        const items = Array.isArray(item.expense_receipt_items) ? item.expense_receipt_items : [];
-        if (items.length > 0) {
-            items.forEach((ri) => {
-                const catName = mapToCanonical(ri.category || 'Miscellaneous');
-                totals[catName] = (totals[catName] || 0) + (parseFloat(ri.price) || 0);
-            });
-        } else {
-            const catName = mapToCanonical(item.expense_categories?.name || 'Miscellaneous');
-            totals[catName] = (totals[catName] || 0) + (parseFloat(item.amount) || 0);
+    if (table === "income_entries") {
+        if (!["source", "month"].includes(groupBy)) {
+            return { error: `groupBy '${groupBy}' is only valid for expense_entries. Use 'source' or 'month' for income_entries.` };
         }
-    });
+    } else if (table === "expense_entries") {
+        if (!["month", "category", "merchant", "month+category"].includes(groupBy)) {
+            return { error: `groupBy '${groupBy}' is not supported for expense_entries. Allowed: month, category, merchant, month+category.` };
+        }
+    } else {
+        return { error: `groupBy is only supported on expense_entries or income_entries.` };
+    }
 
-    const rows = Object.entries(totals)
-        .map(([category, amount]) => ({ category, amount: Math.round(amount * 100) / 100 }))
-        .sort((a, b) => b.amount - a.amount);
-    return { rows };
+    const select = table === "income_entries"
+        ? 'amount, date_credited, month, income_sources(name)'
+        : 'amount, date, month, merchant, expense_categories(name), expense_receipt_items(category, price)';
+
+    let query = supabase
+        .from(table)
+        .select(select)
+        .eq('user_id', currentUser.id);
+
+    if (Array.isArray(args.filters)) {
+        query = applyFilters(query, args.filters);
+    }
+
+    query = query.order('month', { ascending: false }).limit(5000);
+
+    try {
+        const { data, error } = await query;
+        if (error) return { error: `Query failed: ${error.message}` };
+        if (!Array.isArray(data) || data.length === 0) return { rows: [] };
+
+        const rows = table === "income_entries"
+            ? aggregateIncome(data, groupBy)
+            : aggregateExpenses(data, groupBy);
+        return { rows };
+    } catch (err) {
+        return { error: `Query failed: ${err.message}` };
+    }
 }
 
-// ---------------------------------------------------------------------------
-// financial_summary: income, expenses, savings and savings rate for a month.
-// Mirrors the Dashboard's Net Savings card (dashboard.js) so the assistant's
-// figures always match what the user sees on screen.
-// ---------------------------------------------------------------------------
-async function executeFinancialSummary(args) {
-    const rawMonth = typeof args.month === "string" ? args.month.trim() : "";
-    const month = /^\d{4}-\d{2}$/.test(rawMonth) ? rawMonth : yearMonth;
-
-    const incomeRes = await supabase
-        .from('income_entries')
-        .select('amount')
-        .eq('user_id', currentUser.id)
-        .eq('month', month);
-    if (incomeRes.error) return { error: `Query failed: ${incomeRes.error.message}` };
-    const income = (incomeRes.data || []).reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
-
-    const expRes = await executeCategoryBreakdown({ month });
-    if (expRes.error) return expRes;
-    const expenses = (expRes.rows || []).reduce((sum, row) => sum + (parseFloat(row.amount) || 0), 0);
-
-    const savings = income - expenses;
-    const savingsRate = income > 0 ? (savings / income) * 100 : 0;
-    const round2 = (n) => Math.round(n * 100) / 100;
-
-    return { rows: [{
-        month,
-        income: round2(income),
-        expenses: round2(expenses),
-        savings: round2(savings),
-        savingsRate: round2(savingsRate),
-    }] };
+function applyFilters(query, filters) {
+    for (const f of filters) {
+        if (!f || typeof f.field !== "string") continue;
+        const op = ALLOWED_OPERATORS.has(f.operator || "eq") ? (f.operator || "eq") : "eq";
+        const value = f.value;
+        if (op === "is" && (value === null || value === undefined || value === "null")) {
+            query = query.is(f.field, null);
+        } else {
+            query = query[op](f.field, value);
+        }
+    }
+    return query;
 }
 
 // ---------------------------------------------------------------------------

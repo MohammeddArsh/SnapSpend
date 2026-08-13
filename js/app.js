@@ -859,6 +859,15 @@ export function showModal(htmlContent, onOpenCallback = null, options = {}) {
     setTimeout(() => {
         container.classList.remove('opacity-0', 'translate-y-8');
         container.classList.add('opacity-100', 'translate-y-0');
+
+        // Sheet modals pin their height (overflow-hidden + inner scroll region).
+        // If the fixed content is still taller than the modal, let the modal
+        // itself scroll so bottom actions (Save/Cancel) are always reachable.
+        if (options.sheet && container.scrollHeight > container.clientHeight + 1) {
+            container.classList.add('overflow-y-auto');
+            container.classList.remove('overflow-hidden');
+        }
+
         if (window.lucide) window.lucide.createIcons();
         if (onOpenCallback) onOpenCallback();
     }, 20);

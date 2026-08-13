@@ -24,7 +24,7 @@ It combines a clean expense dashboard with an **AI receipt parser** (image → s
 | ------------------ | ---------------------------------------- |
 | **Frontend**       | Vanilla JavaScript (ES6+), HTML5         |
 | **Styling**        | Tailwind CSS v4                          |
-| **Fonts**          | Inter, JetBrains Mono                    |
+| **Fonts**          | Archivo (display), Inter, JetBrains Mono |
 | **Build Tool**     | Vite 6                                   |
 | **Database**       | PostgreSQL via Supabase                  |
 | **Authentication** | Supabase Auth + Cloudflare Turnstile     |
@@ -48,7 +48,10 @@ SnapSpend/
 │   ├── app.js                      # Application router & authentication UI
 │   ├── assistant.js                # AI assistant chat view + answer rendering
 │   ├── assistantClient.js          # Client-side assistant (Gemini) for edge-free deployments
+│   ├── assistantPrompt.js          # Assistant system prompt & tool declarations
+│   ├── assistantStats.js           # Deterministic client-side stats engine
 │   ├── categories.js               # Canonical categories + granular tag mapping
+│   ├── categoryMapping.js          # Granular → canonical category resolver
 │   ├── classifier.js               # On-device Naive Bayes category classifier
 │   ├── dashboard.js                # Dashboard & spending-by-category pie chart
 │   ├── datepicker.js               # Custom month/date picker
@@ -89,6 +92,8 @@ SnapSpend/
 │       └── 0003_rename_outings_to_travel.sql
 │
 ├── tests/
+│   ├── assistantStats.test.js      # Assistant stats engine tests
+│   ├── categoryMapping.test.js     # Granular → canonical mapping tests
 │   ├── classifier.test.js          # Naive Bayes classifier tests
 │   ├── metrics.test.js             # Evaluation metrics tests
 │   └── openrouter.test.js          # OpenRouter client tests
@@ -211,12 +216,12 @@ The PDF is generated client-side with jsPDF and reuses the exact same aggregatio
 
 ### 6. AI Assistant
 
-Ask questions in plain English, e.g. *"How much did I spend on Groceries this month?"* or *"What was my biggest expense this year?"*. The assistant answers **only** from your own expense/income data — never inventing numbers — and replies in clean plain text (no Markdown). Questions outside its scope (anything not about your data) are answered verbatim with *"I can't answer questions outside of my scope"*.
+Ask questions in plain English, e.g. *"How much did I spend on Groceries this month?"* or *"What was my biggest expense this year?"*. The assistant answers **only** from your own expense/income data — never inventing numbers — and replies in clean plain text (no Markdown). If you don't name a month, it assumes the current calendar month and always names the period it's reporting on. Questions outside its scope (anything not about your data, including requests to add, change, or delete records — the assistant is read-only) are answered verbatim with *"I can't answer questions outside of my scope"*.
 
 There are two execution paths:
 
 1. **Supabase Edge Function (text-to-SQL)** — the LLM receives the schema and few-shot SQL examples, calls a validated `query_expenses` tool when a data question needs answering, and the edge function runs the (read-only, always user-scoped) statement and returns the grounded results. This is the recommended production setup — deploy it once as described below.
-2. **Client-side fallback (Vercel builds)** — when running without the edge function, `js/assistantClient.js` talks to the Gemini API directly from the browser. It uses three tools that mirror the Dashboard exactly — `category_breakdown`, `financial_summary`, and `query_expenses` — with up to three tool rounds and per-user conversation memory. The app attaches a raw result table to a reply only when a single query produced it (multi-round answers are summaries only).
+2. **Client-side fallback (Vercel builds)** — when running without the edge function, `js/assistantClient.js` talks to the Gemini API directly from the browser. It drives eight deterministic tools — `query_expenses`, `category_breakdown`, `financial_summary`, `month_over_month`, `yearly_stats`, `category_trends`, `category_count`, and `category_mapping` — with up to four tool rounds and per-user conversation memory. Statistics are computed client-side in `js/assistantStats.js`, so totals and item counts always match the app's own pages; granular labels resolve onto the canonical five via `js/categoryMapping.js`. The app attaches a raw result table to a reply only when a single query produced it (multi-round answers are summaries only).
 
 To configure the edge function:
 
@@ -290,7 +295,7 @@ Notes: `VITE_OPENROUTER_API_KEY` is read from `.env`. Free `:free` tiers are pac
 - **No third-party tracking** — user ledger data is never sent to analytics services.
 - **Row Level Security** — every financial record is protected by `auth.uid() = user_id`.
 - **Bot protection** — Cloudflare Turnstile guards every sign-in and sign-up; the site key lives in the client while the secret stays server-side in Supabase.
-- **Assistant data safety** — the assistant only ever issues read-only, per-user queries: the edge function permits only a single validated `SELECT` and forces `WHERE user_id = <authenticated user>`, while the client fallback restricts access to an allow-list of tables and operators.
+- **Assistant data safety** — the assistant only ever issues read-only, per-user queries: the edge function permits only a single validated `SELECT` and forces `WHERE user_id = <authenticated user>`, while the client fallback aggregates your data in the browser through deterministic read-only tools (no raw SQL on the client) and answers anything outside its data scope verbatim with the out-of-scope phrase.
 - **Input sanitization** — user text is HTML-escaped before rendering.
 
 > **Security Notice:** No software can guarantee absolute security. Please report suspected vulnerabilities according to the project's security disclosure policy.

@@ -1636,8 +1636,8 @@ function openItemizedReceiptModal(ocrData, categories, selectedMonth, classifier
                 <span id="itemized-mismatch-text">Itemized total does not match receipt total. Please review extracted items.</span>
             </div>
 
-            <div class="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col min-h-0 flex-1 sm:flex-none">
-                <div id="itemized-items-scroll" class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-thin sm:max-h-[320px]">
+            <div class="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col min-h-0 flex-1">
+                <div id="itemized-items-scroll" class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-thin">
                     <table class="w-full table-fixed text-left border-collapse text-xs hidden sm:table">
                         <thead class="sticky top-0 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                             <tr>

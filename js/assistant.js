@@ -1,11 +1,13 @@
-import { currentUser } from './app.js';
+import { currentUser, currentView, selectedMonth } from './app.js';
 import { escapeHTML, formatCurrency } from './utils.js';
 import { askAssistantClient } from './assistantClient.js';
 
 const SUGGESTED_QUESTIONS = [
     "How much did I spend on Groceries this month?",
     "What was my biggest single expense this year?",
-    "Show my spending per category this month"
+    "How did my spending change compared to last month?",
+    "Which month had the highest spending so far this year?",
+    "How much of my income am I saving this month?"
 ];
 
 let messages = [];
@@ -175,7 +177,7 @@ async function askAssistant(question) {
     addTypingIndicator();
 
     try {
-        const result = await askAssistantClient(question);
+        const result = await askAssistantClient(question, { page: currentView, selectedMonth });
         if (result.error) throw new Error(result.error);
         const replyData = { content: result.answer, rows: result.rows, toolRounds: result.toolRounds };
         messages.push({ role: 'assistant', ...replyData });
