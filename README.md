@@ -48,6 +48,12 @@ Everything runs client-side against a Postgres database locked down with Row-Lev
   <br />
   <img src="docs/images/reports.png" alt="Monthly reports with PDF export" width="48%" />
   <img src="docs/images/assistant.png" alt="AI assistant" width="48%" />
+  <br />
+  <em>Mobile</em>
+  <br />
+  <img src="docs/images/mobile-dashboard.png" alt="Mobile dashboard" width="32%" />
+  <img src="docs/images/mobile-expenses.png" alt="Mobile receipt scanning" width="32%" />
+  <img src="docs/images/mobile-assistant.png" alt="Mobile AI assistant" width="32%" />
 </div>
 
 ## Demo
