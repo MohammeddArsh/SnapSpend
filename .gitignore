@@ -11,6 +11,7 @@ build/
 coverage/
 outputs/
 backend/outputs/
+reports/
 
 # Environment & Secrets
 .env
