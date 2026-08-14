@@ -68,14 +68,14 @@ export const DEFAULT_SYSTEM_PROMPT = "Extract structured receipt data including 
 //   node eval/run-eval.mjs --list-models
 // Any OpenRouter model id can also be typed in manually.
 export const DEFAULT_OPENROUTER_MODELS = [
-    "google/gemini-3.1-flash-lite",
-    "google/gemini-3.6-flash",
-    "openai/gpt-4o-mini",
-    "anthropic/claude-haiku-4.5",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "nvidia/nemotron-3.5-lightning:free",
+    "google/gemma-4-26b-a4b-it:free",
     "google/gemma-4-31b-it:free",
+    "openai/gpt-oss-20b:free",
 ];
 
-export const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";
+export const DEFAULT_GEMINI_MODEL = "gemini-3.7-flash";
 
 // OpenRouter model used when the direct Gemini vision API is unavailable
 // (persistent HTTP 503 "high demand"). Override via VITE_RECEIPT_FALLBACK_MODEL.

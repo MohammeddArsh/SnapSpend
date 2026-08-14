@@ -2,14 +2,14 @@
 // Evaluation harness: benchmarks multiple models × system prompts on receipt
 // images against ground-truth JSON and reports accuracy metrics.
 
-import { parseReceiptWithModel, DEFAULT_SYSTEM_PROMPT, RECEIPT_SCHEMA_PROMPT, DEFAULT_OPENROUTER_MODELS, DEFAULT_GEMINI_MODEL } from '../parserEngine.js';
+import { parseReceiptWithModel, DEFAULT_SYSTEM_PROMPT, RECEIPT_SCHEMA_PROMPT, DEFAULT_OPENROUTER_MODELS } from '../parserEngine.js';
 import { scoreReceipt, summarizeScores, overallScore } from './metrics.js';
 import { setupThemeToggle } from '../theme.mjs';
 import { FREE_DELAY_MS, PAID_DELAY_MS } from '../../eval/config.mjs';
 
 const refreshIcons = () => { if (window.lucide) window.lucide.createIcons(); };
 
-const GEMINI_MODELS = [DEFAULT_GEMINI_MODEL, 'gemini-3.1-flash', 'gemini-2.5-flash'];
+const GEMINI_MODELS = ['gemini-3.7-flash', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemma-4-31b-it', 'gemma-4-26b-a4b-it'];
 
 const DEFAULT_PROMPTS = [
     DEFAULT_SYSTEM_PROMPT,

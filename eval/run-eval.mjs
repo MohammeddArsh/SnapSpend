@@ -58,7 +58,7 @@ function resolveApiKey() {
 // ---------------------------------------------------------------- args
 
 function parseArgs(argv) {
-    const args = { models: null, prompts: null, tiers: [], includePaid: false, pipeline: 'all',
+    const args = { models: null, prompts: null, pipeline: 'all',
         limit: null, temperature: DEFAULT_TEMPERATURE, concurrency: DEFAULT_CONCURRENCY,
         delayMs: null, noCache: false, dryRun: false, listModels: false, output: DEFAULT_OUTPUT_DIR,
         images: DEFAULT_IMAGES_DIR, truth: DEFAULT_TRUTH_DIR, dataset: null,
@@ -70,8 +70,6 @@ function parseArgs(argv) {
         switch (a) {
             case '--models': args.models = take(i)?.split(',').map((s) => s.trim()).filter(Boolean); i++; break;
             case '--prompts': args.prompts = take(i)?.split(',').map((s) => s.trim()).filter(Boolean); i++; break;
-            case '--tier': args.tiers.push(...take(i)?.split(',').map((s) => s.trim()).filter(Boolean)); i++; break;
-            case '--include-paid': args.includePaid = true; break;
             case '--pipeline': args.pipeline = take(i); i++; break;
             case '--limit': args.limit = parseInt(take(i), 10); i++; break;
             case '--temperature': args.temperature = parseFloat(take(i)); i++; break;
@@ -95,8 +93,6 @@ function parseArgs(argv) {
 
   Options:
     --models a,b,c          Override direct-pipeline models (id or :free variant)
-    --tier free,workhorse   Model tiers to include (free | workhorse | frontier)
-    --include-paid          Add workhorse + frontier tiers to the default (free)
     --prompts ids           Prompt ids, comma-separated [default,careful,terse,german-aware]
     --pipeline direct|ocr|all
     --transcribe-model id   OCR-stage transcription model [google/gemma-4-26b-a4b-it:free]
@@ -164,11 +160,7 @@ function buildMatrix(args) {
     const promptSets = { direct: DIRECT_PROMPTS, ocr: OCR_PROMPTS };
     let models = args.models
         ? args.models
-        : [
-            ...(args.tiers.includes('free') || (!args.includePaid && args.tiers.length === 0) ? EVAL_MODELS.free : []),
-            ...(args.includePaid || args.tiers.includes('workhorse') ? EVAL_MODELS.workhorse : []),
-            ...(args.includePaid || args.tiers.includes('frontier') ? EVAL_MODELS.frontier : []),
-        ];
+        : EVAL_MODELS.free;
     const promptIds = args.prompts || DEFAULT_PROMPT_IDS;
 
     const combos = [];
@@ -294,7 +286,7 @@ async function main() {
 
     const combos = buildMatrix(args);
     if (combos.length === 0) {
-        console.error('No combinations to run. Check --pipeline / --prompts / --models / --tier.');
+        console.error('No combinations to run. Check --pipeline / --prompts / --models.');
         process.exit(1);
     }
 

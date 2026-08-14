@@ -7,7 +7,7 @@ from parser_engine_v2 import parse_receipt_image_async
 
 SOURCE_DIR = Path(__file__).resolve().parent / "Dataset" / "Images"
 OUTPUT_DIR = Path(__file__).resolve().parent / "Dataset" / "gemini_3.6"
-MODEL = "gemini-3.6-flash"
+MODEL = "gemini-3.7-flash"
 MAX_RETRIES = 5
 
 RETRYABLE_STATUSES = (429, 500, 503)

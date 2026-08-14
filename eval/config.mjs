@@ -8,22 +8,11 @@
 export const EVAL_MODELS = {
     // Free vision-capable endpoints (verified live).
     free: [
-        'google/gemma-4-31b-it:free',
+        'nvidia/nemotron-3-ultra-550b-a55b:free',
+        'nvidia/nemotron-3.5-lightning:free',
         'google/gemma-4-26b-a4b-it:free',
-        'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
-        'nvidia/nemotron-nano-12b-v2-vl:free',
-        'openrouter/free', // router — picks a suitable free model per request
-    ],
-    // Cheap paid workhorses (pennies per run; the production default parser).
-    workhorse: [
-        'google/gemini-3.1-flash-lite',
-        'google/gemini-3.6-flash',
-        'openai/gpt-4o-mini',
-    ],
-    // Frontier tier — opt-in via --include-paid (or --models).
-    frontier: [
-        'anthropic/claude-haiku-4.5',
-        'openai/gpt-5.5',
+        'google/gemma-4-31b-it:free',
+        'openai/gpt-oss-20b:free',
     ],
 };
 
@@ -53,9 +42,9 @@ export const DATASET_SETUPS = [
         temperature: 0.1,
     },
     {
-        name: 'gemini_3.6_flash_direct',
+        name: 'gemini_3.7_flash_direct',
         pipeline: 'direct',
-        model: 'google/gemini-3.6-flash',
+        model: 'google/gemini-3.7-flash',
         promptId: 'default',
         temperature: 0.1,
     },

@@ -94,15 +94,19 @@ Everything runs client-side against a Postgres database locked down with Row-Lev
   <img src="docs/images/mobile-assistant.png" alt="Mobile AI assistant" width="32%" />
 </div>
 
+
+## Report
+
+The report is written in Notion, the following link gives access to comment:
+
+**Notion Link:** [Technical Report](https://app.notion.com/p/SnapSpend-Technical-Report-3bc992d407228010a83ada2ba59c5825)
+
+
 ## Demo
 
 Watch SnapSpend in action:
 
-<p align="center">
-  <a href="https://www.youtube.com/watch?v=YOUR_VIDEO_ID">
-    <img src="docs/images/demo-thumbnail.png" alt="SnapSpend demo video" width="800" />
-  </a>
-</p>
+**Youtube Link:** [Live Demo](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
 
 ## Getting started
 

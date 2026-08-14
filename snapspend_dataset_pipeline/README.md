@@ -5,7 +5,7 @@ Generates two parallel receipt-parsing datasets from the same set of receipt ima
 | Folder | Pipeline | Model |
 | --- | --- | --- |
 | `Dataset/ocr_gemini_3.1_flash_lite/` | PaddleOCR extracts text, then Gemini tags/categorizes items | `gemini-3.1-flash-lite` |
-| `Dataset/gemini_3.6/` | Gemini parses the receipt image directly | `gemini-3.6-flash` |
+| `Dataset/gemini_3.6/` | Gemini parses the receipt image directly | `-flash` |
 
 Both pipelines follow the updated parser engine: items are tagged with one of the five canonical categories
 (`Groceries`, `Pharmacy`, `Travel`, `Households`, `Miscellaneous`) via the `mapToCanonical` mapping.
@@ -65,7 +65,7 @@ Copy your Gemini API key into `.env`:
 GEMINI_API_KEY=your_google_gemini_api_key_here
 ```
 
-Note: `gemini-3.6-flash` has a free-tier limit of ~20 requests/day per Google Cloud
+Note: `gemini-3.7-flash` has a free-tier limit of ~20 requests/day per Google Cloud
 project. If the run hits quota/latency errors, re-running the same builder resumes
 automatically — it skips already-generated JSON files and retries transient failures.
 

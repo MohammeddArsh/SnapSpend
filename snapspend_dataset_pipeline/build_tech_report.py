@@ -1023,7 +1023,7 @@ story.append(P(
     "<font face='Courier' size='8'>eval/run-eval.mjs</font> builds a matrix of "
     "<b>pipelines × models × prompts</b> and scores every combination against "
     "ground-truth JSON. Default models are free-tier (gemma-4, nemotron, openrouter/free) "
-    "with opt-in workhorse (gemini-3.1-flash-lite, gemini-3.6-flash, gpt-4o-mini) and "
+    "with opt-in workhorse (gemini-3.1-flash-lite, gemini-3.7-flash, gpt-4o-mini) and "
     "frontier (claude-haiku-4.5, gpt-5.5) tiers. A dry-run mode prints the matrix and "
     "call budget without spending anything."))
 story.append(H2("11.3 Scoring metrics (js/eval/metrics.js)"))
