@@ -14,8 +14,6 @@
 ![Supabase](https://img.shields.io/badge/Supabase-3ecf8e?style=flat-square&logo=supabase&logoColor=white)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
-:star: If you like this project, star it on GitHub — it helps a lot!
-
 [Overview](#overview) • [Features](#features) • [Screenshots](#screenshots) • [Demo](#demo) • [Getting started](#getting-started) • [AI features](#ai-features) • [Deployment](#deployment)
 
 <img src="docs/images/dashboard.png" alt="SnapSpend dashboard" width="800" />
@@ -106,7 +104,7 @@ The report is written in Notion, the following link gives access to comment:
 
 Watch SnapSpend in action:
 
-**Youtube Link:** [Live Demo](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
+**Youtube Link:** [Live Demo](https://youtu.be/DTaS9f4csFU)
 
 ## Getting started
 
